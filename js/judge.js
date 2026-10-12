@@ -37,8 +37,10 @@ function judgeUnified(code, prob, keywords){
     }
   );
 
+  const normalized = src.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
+
   /* ---------- CE 判定 ---------- */
-  if (!/\bint\s+main\s*\(/.test(src) || src.length < 40){
+  if (!/\bint\s+main\s*\(/.test(src) || normalized.length < 40){
     return {
       status: 'CE', score: 0,
       cases: Array.from({ length: 10 }, (_, i) => ({
@@ -57,7 +59,7 @@ function judgeUnified(code, prob, keywords){
   const kwScore = Math.min(40, hits * 2);   // 命中 20 个即满分
 
   /* ---------- 2. 代码长度（0~30） ---------- */
-  const lines = code.split('\n').length;
+  const lines = normalized.split('\n').length;
   const lenScore = Math.max(0, Math.min(30, (lines - 5) / 100 * 30));
 
   /* ---------- 3. 结构完整度（0~30） ---------- */
@@ -70,7 +72,7 @@ function judgeUnified(code, prob, keywords){
   let baseScore = kwScore + lenScore + structScore;   // 0 ~ 100
 
   /* ---------- 4. 确定性抖动 ±10 ---------- */
-  const rng = mulberry32(hashStr(code + '|' + prob.id));
+  const rng = mulberry32(hashStr(normalized + '|' + prob.id));
   baseScore += (rng() - 0.5) * 20;
   baseScore = Math.max(0, Math.min(100, baseScore));
 

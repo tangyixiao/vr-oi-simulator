@@ -30,7 +30,7 @@ function openCode(){
   verdictEl.classList.add('hidden');
   renderProblemList();
   loadProblem(state.curProb);
-  setTimeout(() => codeArea.focus(), 60);
+  setTimeout(() => { if (!state.ended && state.view === 'code') codeArea.focus(); }, 60);
 }
 function closeCode(){
   state.view = 'world';
@@ -167,13 +167,22 @@ function judgeCode(code, prob){
   return judgeUnified(code, prob, KEYWORDS_LIST);
 }
 
+let judgingTimer = null;
+function cancelJudging(){
+  if (judgingTimer !== null) clearInterval(judgingTimer);
+  judgingTimer = null;
+  const btn = $('btnSubmit');
+  if (btn) btn.disabled = false;
+}
+
 function submitCode(){
+  if (state.ended || judgingTimer !== null) return;
   saveCode();
   const prob = state.problems.find(x => x.id === state.curProb);
   const code = state.code[state.curProb];
 
   const badWord = containsBannedWord(code);
-  if (badWord){
+  if (badWord && teacher && !state.teacherDown){
     showBannedWordDialog(badWord);
     return;
   }
@@ -184,18 +193,20 @@ function submitCode(){
   verdictEl.classList.remove('hidden');
   verdictEl.innerHTML = `
     <h4>评测中… <span style="color:#5b8cff">${prob.id}</span></h4>
-    <div class="judging">正在编译 & 运行测试数据…</div>
+    <div class="judging">正在计算娱乐模拟评分（不编译或运行 C++）…</div>
     <div class="barwrap"><i id="jbar"></i></div>
   `;
   audio.beep(680, 0.06, 0.04);
 
   let prog = 0;
-  const iv = setInterval(() => {
+  const generation = battle.generation;
+  judgingTimer = setInterval(() => {
+    if (state.ended || battle.generation !== generation){ cancelJudging(); return; }
     prog += 7 + Math.random() * 12;
     const bar = $('jbar');
     if (bar) bar.style.width = Math.min(100, prog) + '%';
     if (prog >= 100){
-      clearInterval(iv);
+      cancelJudging();
       const res = judgeCode(code, prob);
       state.score[prob.id] = Math.max(state.score[prob.id] || 0, res.score);
       state.submitCount[prob.id] = (state.submitCount[prob.id] || 0) + 1;
@@ -223,7 +234,7 @@ function renderVerdict(prob, res){
                 res.status === 'CE' ? '#8b95a9' :
                 res.status === 'PART' ? '#ffcc57' : '#ff5f6d';
   verdictEl.innerHTML = `
-    <h4>${prob.id} 评测结果 <span style="color:${color}">${res.score} 分</span></h4>
+    <h4>${prob.id} 模拟评分 <span style="color:${color}">${res.score} 分</span></h4>
     <div style="color:${color};font-size:12px;margin-bottom:12px;font-family:monospace">${statusText}</div>
     <div class="cases">${res.cases.map(c =>
       `<div class="case ${c.status}">#${c.id}<br>${c.status}</div>`).join('')}</div>

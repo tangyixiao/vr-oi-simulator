@@ -71,7 +71,14 @@ const ACHIEVEMENTS = {
   teacher_hit:{ name: '袭师者',     desc: '殴打了监考老师' },
   explorer:   { name: '厕所旅行家', desc: '完整去过一次洗手间' },
   wanderer: { name: '红圈五连', desc: '同一场考试，五次随意走动' }
-  ,army: { name: '一人军队', desc: '击倒全部 200 名保安（隐藏结局）' }
+  ,army: { name: '一人军队', desc: '击倒至少 200 名保安并完成考场战斗' },
+  one_punch: { name: '一拳超人', desc: '单次击倒至少 50 名保安' },
+  chair50: { name: '椅子战神', desc: '使用椅子累计击倒 50 名保安' },
+  student_hit: { name: '同学勿扰', desc: '击倒一名同学' },
+  student5: { name: '考场清空', desc: '击倒全部五名同学' },
+  escape: { name: '校园突围', desc: '打通走廊与庭院，从校门离开' },
+  endless500: { name: '五百人挑战', desc: '无尽模式击倒 500 人' },
+  endless1000: { name: '千人战绩', desc: '无尽模式击倒 1000 人' }
 };
 
 function unlockAch(id){

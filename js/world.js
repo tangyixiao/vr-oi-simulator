@@ -395,6 +395,7 @@ function buildDesk(x, z, withMonitor){
   box(0.46, 0.52, 0.05, 0x2e3440, 0, 0.72, 0.21, chair);
   box(0.05, 0.45, 0.05, 0x242a34, 0, 0.22, 0, chair);
 
+  chairs.push({ group: chair, seatX: x, seatZ: z + 0.92 });
   return g;
 }
 
@@ -431,7 +432,7 @@ function buildPerson(x, z, shirtColor, rotY, startPose){
   head.position.set(0, 1.52, 0.02);
   g.add(head);
   const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.142, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    getHairGeo(),
     mat(0x18181c, { roughness: 1 })
   );
   hair.position.set(0, 1.535, 0.02);
@@ -467,16 +468,16 @@ function buildSecurityGuard(x, z){
 
   /* ---------- 手臂：独立几何 + 独立材质 ---------- */
   const armL = new THREE.Mesh(
-    new THREE.BoxGeometry(0.14, 0.55, 0.14),
-    new THREE.MeshStandardMaterial({ color: uniform, roughness: 0.88, metalness: 0.04 })
+    getBoxGeo(0.14, 0.55, 0.14),
+    mat(uniform)
   );
   armL.position.set(-0.33, 1.12, 0.10);
   armL.rotation.x = -0.2;
   g.add(armL);
 
   const armR = new THREE.Mesh(
-    new THREE.BoxGeometry(0.14, 0.55, 0.14),
-    new THREE.MeshStandardMaterial({ color: uniform, roughness: 0.88, metalness: 0.04 })
+    getBoxGeo(0.14, 0.55, 0.14),
+    mat(uniform)
   );
   armR.position.set(0.33, 1.12, 0.10);
   armR.rotation.x = -0.2;
@@ -484,32 +485,32 @@ function buildSecurityGuard(x, z){
 
   /* ---------- 头 ---------- */
   const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 16, 12),
-    new THREE.MeshStandardMaterial({ color: skin, roughness: 0.75, metalness: 0.04 })
+    getSphereGeo(0.16, 16, 12),
+    mat(skin, { roughness: 0.75 })
   );
   head.position.set(0, 1.58, 0.02);
   g.add(head);
 
   /* ---------- 帽子 ---------- */
   const cap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.17, 0.17, 0.06, 16),
-    new THREE.MeshStandardMaterial({ color: 0x0a1525, roughness: 0.5, metalness: 0.04 })
+    getCylinderGeo(0.17, 0.17, 0.06, 16),
+    mat(0x0a1525, { roughness: 0.5 })
   );
   cap.position.set(0, 1.76, 0.02);
   g.add(cap);
 
   /* ---------- 帽檐 ---------- */
   const brim = new THREE.Mesh(
-    new THREE.BoxGeometry(0.22, 0.02, 0.18),
-    new THREE.MeshStandardMaterial({ color: 0x050c18, roughness: 0.5, metalness: 0.04 })
+    getBoxGeo(0.22, 0.02, 0.18),
+    mat(0x050c18, { roughness: 0.5 })
   );
   brim.position.set(0, 1.73, 0.13);
   g.add(brim);
 
   /* ---------- 徽章 ---------- */
   const badge = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.02, 0.01, 8),
-    new THREE.MeshStandardMaterial({ color: 0xffcc33, roughness: 0.3, metalness: 0.8 })
+    getCylinderGeo(0.02, 0.02, 0.01, 8),
+    mat(0xffcc33, { roughness: 0.3, metalness: 0.8 })
   );
   badge.rotation.x = Math.PI / 2;
   badge.position.set(0, 1.76, 0.15);
@@ -548,8 +549,6 @@ const securityGuards = [];
 const GUARD_SPEED_BASE = 0.55;
 const GUARD_SPAWN_DIST = 5.0;
 const GUARD_HIT_RADIUS = 0.95;
-const GUARD_PUNCH_RANGE = 100; // 全场级拳击半径（老师、保安、同学共用）
-const GUARD_MAX_TOTAL = 200;   // 全场最多排出多少保安；耗尽后不再补充
 
 /* ---------- 假接触阴影：径向渐变贴片，比真阴影便宜且可随紧张态加深 ---------- */
 const _shadowGeo = new THREE.PlaneGeometry(1, 1);
@@ -575,6 +574,7 @@ function addContactShadow(parent, radius){
   m.position.y = 0.012;
   m.scale.set(radius * 2, radius * 2, 1);
   m.renderOrder = 1;
+  m.userData.contactShadow = true;
   parent.add(m);
   contactShadows.push(m);
   return m;
@@ -585,7 +585,7 @@ function deepenContactShadows(t){
   /* 清扫：组已被移出场景的角色（父级的父级为空）其阴影不再需要 */
   for (let i = contactShadows.length - 1; i >= 0; i--){
     const m = contactShadows[i];
-    if (m.parent && m.parent.parent === null) contactShadows.splice(i, 1);
+    if (!m.parent || m.parent.parent === null) contactShadows.splice(i, 1);
   }
   for (const m of contactShadows) m.material.opacity = 0.42 + 0.46 * t;
 }
@@ -648,7 +648,7 @@ function updateGuardLights(guards, t){
 
 /* 剩余可派出名额（纯函数，便于测试） */
 function guardPoolRemaining(){
-  return Math.max(0, GUARD_MAX_TOTAL - (state.guardsSpawned || 0));
+  return Math.max(0, battle.target - battle.spawned);
 }
 
 function aliveGuardCount(){
@@ -665,42 +665,33 @@ function pruneDeadGuards(){
 }
 
 function spawnTwoGuards(){
-  if (state.ended) return;
+  if (!battle.active || state.ended || state.view !== 'world') return;
   pruneDeadGuards();
-
-  /* 名额耗尽：不再派出新保安 */
-  const n = Math.min(2, guardPoolRemaining());
-  if (n <= 0) return;
-
-  const baseAngles = [
-    Math.random() * Math.PI * 2,
-    Math.random() * Math.PI * 2 + Math.PI
-  ];
-  const speedBonus = Math.min(0.35, state.guardKills * 0.04);
-
+  const cap = qualityBudget().guards;
+  const n = spawnAllowance(battle.spawned, aliveGuardCount(), battle.target, cap);
   for (let i = 0; i < n; i++){
-    let angle = baseAngles[i];
-    const dist = GUARD_SPAWN_DIST + Math.random() * 1.2;
-    let gx = state.pos.x + Math.cos(angle) * dist;
-    let gz = state.pos.z + Math.sin(angle) * dist;
-    gx = clamp(gx, -7.5, 7.5);
-    gz = clamp(gz, -6.5, 6.5);
-
-    let tries = 0;
-    while (Math.hypot(gx - state.pos.x, gz - state.pos.z) < 3.6 && tries++ < 14){
-      angle += 0.9;
-      gx = clamp(state.pos.x + Math.cos(angle) * dist, -7.5, 7.5);
-      gz = clamp(state.pos.z + Math.sin(angle) * dist, -6.5, 6.5);
-    }
-
-    const g = buildSecurityGuard(gx, gz);
-    g.userData = {
-      speed: GUARD_SPEED_BASE + speedBonus,
-      alive: true
-    };
+    const spot = findGuardSpawn();
+    if (!spot) break;
+    const g = buildSecurityGuard(spot.x, spot.z);
+    g.userData = { alive: true, speed: (GUARD_SPEED_BASE + Math.min(0.35, state.guardKills * 0.04)) *
+      (battle.stage.startsWith('campus') ? 1.25 : 1) };
     securityGuards.push(g);
-    state.guardsSpawned = (state.guardsSpawned || 0) + 1;
+    battle.spawned++;
+    state.guardsSpawned++;
   }
+}
+function findGuardSpawn(){
+  const hw = worldBounds.w / 2 - 0.6, hd = worldBounds.d / 2 - 0.6;
+  for (let tries = 0; tries < 64; tries++){
+    const minZ = worldBounds.minZ ?? -hd, maxZ = worldBounds.maxZ ?? hd;
+    const x = (Math.random() * 2 - 1) * hw, z = minZ + Math.random() * (maxZ - minZ);
+    if (!collides(x, z, 0.32) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
+  }
+  // A deterministic fallback avoids losing quota when random samples miss narrow passages.
+  for (let x = -hw; x <= hw; x += 1.5) for (let z = worldBounds.minZ ?? -hd; z <= (worldBounds.maxZ ?? hd); z += 1.5){
+    if (!collides(x, z, 0.32) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
+  }
+  return null;
 }
 
 /* ---------- 构建世界 ---------- */

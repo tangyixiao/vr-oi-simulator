@@ -9,7 +9,6 @@
 const BANNED_WORDS = [
   'fuck', 'fucking', 'fucker', 'fucked',
   'shit', 'bullshit', 'bitch', 'asshole', 'bastard',
-  'ccf', 'ccccf',
   '傻逼', '妈的', '操你', '尼玛', '你妈',
   '滚蛋', '垃圾出题人', '垃圾比赛'
 ];
@@ -22,6 +21,7 @@ function containsBannedWord(code){
 }
 
 function showBannedWordDialog(word){
+  if (!teacher || state.teacherDown || state.ended) return;
   /* 弹窗悬浮在 3D 世界中，必须先收起 IDE 让世界重新可见 */
   closeCode();
   const display = word.toUpperCase();
@@ -105,7 +105,7 @@ function useNPCComputer(i){
   const n = npcs[i];
   if (!n) return;
   const ud = n.userData;
-  if (ud.state !== 'walking_away' && ud.state !== 'away'){
+  if (ud.state !== 'walking_away' && ud.state !== 'away' && ud.state !== 'down'){
     toast('他还在座位上，你不好动手。', 1500);
     return;
   }
@@ -138,21 +138,23 @@ function closeNPCComputer(){
 /* 放倒同学（监考倒台后才可用）：部件炸散、组退场。
    ud.state 置为 'down'，updateNPCs 的状态机不认识该状态，会自然跳过。 */
 function downNPC(n){
-  if (!n || n.userData.state === 'down') return false;
+  if (!canFight() || !state.teacherDown || !n || n.userData.state !== 'seated' ||
+      !inPunchRange(n.group.position.x, n.group.position.z)) return false;
   spawnBodyDebris(n.group, { speed: 3.2 });
   scene.remove(n.group);
   n.userData.state = 'down';
   n.userData.anger = 0;
-  /* 与打保安同等级的打击感：脆响 + 视角回弹 + 命中顿帧 */
-  audio.punch();
-  kickView(0.055, (Math.random() - 0.5) * 0.055);
-  hitStop = 0.08;
-  toast('你一拳放倒了同学！考场里彻底乱了。', 1600);
+  state.npcKills++;
+  unlockAch('student_hit');
+  if (state.npcKills >= 5) unlockAch('student5');
+  hitFeedback(1);
+  toast('你放倒了一名同学！空出的椅子现在可以拾取。', 1600);
   return true;
 }
 
 /* ---------- 投诉 ---------- */
 function triggerNPCComplaint(name){
+  if (!teacher || state.teacherDown || state.ended) return;
   /* 同学告老师：3D 悬浮弹窗，点"我知道了"消除，鼠标吸附不中断 */
   openDialog({
     title: '\u{1F468}\u200D\u{1F3EB} 监考老师',

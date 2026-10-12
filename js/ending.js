@@ -9,7 +9,7 @@
 function showEnding(score, detailHtml){
   releaseLock();
   const stats = $('endStats');
-  const elapsedSec = state.elapsed / Math.max(1, timeScale);
+  const elapsedSec = state.realPlayTime;
   stats.innerHTML = `
     <div class="stat"><div class="sv">${fmtTime(elapsedSec)}</div><div class="sl">实际用时</div></div>
     <div class="stat"><div class="sv">${state.warnCount}</div><div class="sl">警告次数</div></div>
@@ -30,13 +30,15 @@ function showEnding(score, detailHtml){
 
 function endContest(manual){
   if (state.ended) return;
+  if (currentRun().runMode === 'endless') { endEndless('主动结束'); return; }
+  stopBattle();
 
   /* 本场曾离开座位 5 次 → 取消成绩 */
   if (state.wanderPenaltyApplied){
     state.ended = true;
     state.view = 'world';
     hideAllPanels();
-    for (const g of securityGuards) scene.remove(g.group);
+    for (const g of securityGuards){ scene.remove(g.group); disposeOwnedMaterials(g.group); }
     securityGuards.length = 0;
     unlockAch('wanderer');
 
@@ -53,7 +55,7 @@ function endContest(manual){
   state.ended = true;
   state.view = 'world';
   hideAllPanels();
-  for (const g of securityGuards) scene.remove(g.group);
+  for (const g of securityGuards){ scene.remove(g.group); disposeOwnedMaterials(g.group); }
   securityGuards.length = 0;
 
   let total = 0;
@@ -65,11 +67,11 @@ function endContest(manual){
   });
 
   if (total === 0) unlockAch('zero_king');
-  if (state.warnCount === 0) unlockAch('clean_run');
+  if (state.warnCount === 0 && !state.teacherDown) unlockAch('clean_run');
   if (state.elapsed / timeScale <= 3600) unlockAch('speedrun');
 
   $('endTitle').textContent = '比 赛 结 束';
-  $('endSub').textContent = '评测机已停止运行，你的代码已被封存。';
+  $('endSub').textContent = '娱乐模拟已结束，答题与战斗分别统计。';
   showEnding(total,
     detail.join('\n') +
     `\n\n用时 ${fmtTime(state.elapsed)}　·　被警告 ${state.warnCount} 次` +

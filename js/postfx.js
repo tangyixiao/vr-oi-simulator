@@ -120,7 +120,8 @@ function resizePostFX(){
    2) three 对 Color 背景会 forceClear，即使 autoClear=false 也清屏，
       所以 UI 覆盖 pass 前要临时摘掉 scene.background。 */
 function renderFrame(dt){
-  if (!postOK){
+  if (!postOK || !gameOptions.trail || gameOptions.quality === 'low'){
+    postPrimed = false;
     camera.layers.enable(1);
     try { renderer.render(scene, camera); }
     finally { camera.layers.disable(1); }

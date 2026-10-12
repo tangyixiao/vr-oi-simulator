@@ -20,7 +20,7 @@ function bindEvents(){
     if (!pointerLocked && !actionSpace){ requestLock(); return; }
     /* 左键即原空格键语义：范围内存在可攻击目标
        时执行攻击，否则执行普通交互 */
-    doInteract(actionSpace ? 'space' : 'e');
+    doInteract('space');
   });
 
   document.addEventListener('keydown', e => {
@@ -55,8 +55,9 @@ function bindEvents(){
       if (state.view === 'paper'){ closePaper(); return; }
       if (hasDialog()){ closeTeacherDialog(); return; }
       if (state.view === 'world' && state.started && !state.ended){
-        /* 已锁定时交给 pointerlockchange 处理，避免一次 Esc 开两次面板 */
-        if (!pointerLocked) openPauseMenu();
+        /* 主动释放并打开菜单，不依赖浏览器替我们处理 Escape。
+           pointerlockchange 看到 pause 视图后不会重复打开。 */
+        openPauseMenu();
         return;
       }
       return;
@@ -82,9 +83,10 @@ function bindEvents(){
          这条路径不依赖指针锁定，锁定失效时也能打 */
       else {
         updateInteract();
-        doInteract(actionSpace ? 'space' : 'e');
+        doInteract('e');
       }
     }
+    if (e.code === 'KeyR' && !e.repeat) toggleChair();
     if (e.code === 'KeyF'){ doInteract('f'); }
     if (e.code === 'Space'){
       /* 空格跳跃；弹窗悬浮期间不跳，避免误触 */
@@ -113,6 +115,7 @@ function bindEvents(){
   /* ---------- 指针锁定 ---------- */
   document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === lockElement();
+    if (pointerLocked && !canLockView()){ releaseLock(); return; }
     if (pointerLocked) lastLockAt = performance.now();
     /* 锁定被释放（通常是 Esc）：世界视图下打开设置面板 */
     else if (state.view === 'world' && state.started && !state.ended) openPauseMenu();
@@ -178,6 +181,8 @@ function bindEvents(){
       audio.setMuted(!audio.muted);
       mt.classList.toggle('on', !audio.muted);
       saveViewSettings();
+      saveGameOptions();
+      syncUpgradeUI();
     };
   }
 
@@ -189,6 +194,8 @@ function bindEvents(){
       shakeEnabled = !shakeEnabled;
       st.classList.toggle('on', shakeEnabled);
       saveViewSettings();
+      saveGameOptions();
+      syncUpgradeUI();
     };
   }
   const st2 = $('shakeToggleStart');
@@ -198,6 +205,8 @@ function bindEvents(){
       shakeEnabled = !shakeEnabled;
       st2.classList.toggle('on', shakeEnabled);
       saveViewSettings();
+      saveGameOptions();
+      syncUpgradeUI();
     };
   }
 
@@ -247,7 +256,7 @@ function bindEvents(){
     const v = codeArea.value.substring(0, codeArea.selectionStart);
     const lines = v.split('\n');
     $('cursorInfo').textContent =
-      `Ln ${lines.length}, Col ${lines[lines.length - 1].length + 1}  ·  C++14  ·  g++ -O2`;
+      `Ln ${lines.length}, Col ${lines[lines.length - 1].length + 1}  ·  C++14 文本 · 娱乐模拟评分`;
   }
 
   $('btnSubmit').onclick = submitCode;
@@ -265,7 +274,7 @@ function bindEvents(){
     if (confirm('确定要提前交卷离场吗？')) endContest(true);
   };
   $('btnRestart').onclick = () => {
-    clearSave();
+    if (!state.retryCheckpoint && currentRun().runMode !== 'endless') clearSave();
     location.reload();
   };
 
@@ -283,15 +292,19 @@ function bindEvents(){
     hud.classList.remove('hidden');
     minimapWrap.classList.remove('hidden');
     crosshair.classList.remove('hidden');
+    state.runConfig = Object.freeze({ ...gameOptions });
     state.started = true;
+    syncUpgradeUI();
     state.startTime = performance.now();
     yawTarget = state.yaw; pitchTarget = state.pitch;
     clock.getDelta();
-    toast('比赛开始！WASD 移动，鼠标转动视角，左键交互 / 攻击。', 2600);
+    toast('WASD 移动 · 左键攻击 · E 交互 · R 拾取椅子。打倒老师开启战斗！', 4000);
     /* 点击按钮是用户手势，此时申请指针锁定成功率最高 */
     requestLock();
     /* 尝试恢复存档 */
-    if (tryLoadSave()) toast('已恢复上次的答题进度。', 2200);
+    if (currentRun().runMode === 'endless') startEndless();
+    else if ($('resumeSave').checked && tryLoadSave()) toast(checkpoint ? '已恢复检查点，当前战斗段重新开始。' : '已恢复上次答题进度。', 2600);
+    syncUpgradeUI();
   };
 }
 
@@ -327,11 +340,13 @@ const VIEW_NO_RENDER = new Set([
 
 function animate(){
   requestAnimationFrame(animate);
-  const realDt = Math.min(clock.getDelta(), 0.1);
+  const frameDt = clock.getDelta();
+  const realDt = Math.min(frameDt, 0.1);
   const t = performance.now() * 0.001;
 
   if (state.started && !state.ended){
-    state.elapsed += realDt * timeScale;
+    if (state.view !== 'pause' && !state.frozen) state.realPlayTime += frameDt;
+    if (currentRun().runMode === 'campaign' && state.chapter === 'classroom') state.elapsed += frameDt * timeScale;
     if (state.elapsed >= CONTEST_LEN) endContest(false);
   }
 
@@ -350,6 +365,8 @@ function animate(){
 
   if (inWorld && state.started && !state.ended && !state.frozen){
     applyLook(realDt);
+    updatePerformance(frameDt);
+    updateBattle(worldDt);
     updatePlayer(worldDt);       /* 移动也吃慢放：通报期间世界真的变慢 */
   }
 
@@ -359,6 +376,8 @@ function animate(){
   if (debrisList.length) updateDebris(worldDt);
   /* 3D 准星：旋转 / 缩放 / 变色 / 停留进度环 */
   updateReticle(realDt);
+  updateWeapons(realDt);
+  if (state.started && !state.ended) renderBattleHud();
 
   if (state.view === 'corridor') updateCorridor(realDt);
   if (state.view === 'bathroom') updateBathroom(realDt);
@@ -463,7 +482,7 @@ function animate(){
   /* HUD */
   if (state.started && !state.ended){
     const remain = CONTEST_LEN - state.elapsed;
-    const txt = fmtTime(remain);
+    const txt = currentRun().runMode === 'endless' ? fmtTime(state.realPlayTime) : state.chapter.startsWith('campus') ? '校园突围' : fmtTime(remain);
     if (hudTimer.textContent !== txt){
       hudTimer.textContent = txt;
       const ideTime = $('ideTime');
@@ -478,7 +497,7 @@ function animate(){
         ? `　<span style="color:#ff6b78;font-size:16px">\u26A0 保安 ${alive}</span>`
         : '';
       hudScore.innerHTML =
-        `总分 <b>${state.totalScore}</b> / 400　` +
+        `娱乐分 <b>${state.totalScore}</b> / 400　` +
         `<span style="color:#5d6880;font-size:16px">警告 ${state.warnCount} 次</span>${guardInfo}`;
     }
     /* HUD 陪葬：计时器与小地图随紧张值进入红色警戒 */
@@ -500,6 +519,7 @@ function animate(){
    ========================================================= */
 function init(){
   loadViewSettings();
+  loadGameOptions();
   syncViewUI();
 
   renderer = new THREE.WebGLRenderer({
@@ -508,7 +528,7 @@ function init(){
     powerPreference: 'high-performance'
   });
   /* DPR 上限改为 1.5：视觉差异极小，但填充率大幅下降 */
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, qualityBudget().dpr));
   renderer.setSize(innerWidth, innerHeight);
   if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 
@@ -530,11 +550,13 @@ function init(){
   buildWorld();
   updateAllDeskScreens();
   initReticle();
+  initWeapons();
   /* 氛围系统：拖影后处理（可失败回退）/ 保安警灯 / 紧张值 */
   initPostFX();
   initGuardLights();
   initTension();
   initHp();
+  initUpgradeUI();
   bindEvents();
   initPaperEvents();
   renderHudProbs();
@@ -552,7 +574,9 @@ try {
     const d = document.createElement('div');
     d.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);' +
       'background:#3a1a1a;color:#f88;padding:12px 22px;border-radius:8px;z-index:999;font-size:13px';
-    d.textContent = '初始化失败：' + e.message + '（按 F12 查看详情）';
+    d.textContent = '游戏暂时无法启动，请刷新页面重试。错误：' + e.message;
+    const retry = document.createElement('button');
+    retry.textContent = '刷新重试'; retry.onclick = () => location.reload(); d.appendChild(retry);
     document.body.appendChild(d);
   }
 }

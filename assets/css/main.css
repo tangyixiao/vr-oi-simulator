@@ -469,3 +469,25 @@
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-thumb{background:#242c3c;border-radius:4px;}
   ::-webkit-scrollbar-track{background:transparent;}
+
+/* Campus controls retain the original game's restrained dark panels. */
+.setting-row select,.setting-row input[type=number]{background:#172331;color:#e4eef7;border:1px solid #3c536b;border-radius:6px;padding:7px 9px;min-width:0;flex:1;font:inherit;}
+.setting-help{font-size:12px;color:#8ba5b8;line-height:1.7;margin:8px 4px;}
+.count-presets,.effect-checks{display:flex;gap:12px;flex-wrap:wrap;margin:8px 4px;}
+.count-presets button{border:1px solid #355064;background:#172b38;color:#bceacf;border-radius:6px;padding:5px 14px;cursor:pointer;font:inherit;}
+.effect-checks label{display:flex;gap:6px;align-items:center;font-size:12px;color:#b6c8d5;cursor:pointer;}
+button:disabled,input:disabled{opacity:.45;cursor:default;}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid #86d7ba;outline-offset:3px;}
+#battleHud{position:absolute;left:20px;top:78px;white-space:pre-line;font-size:13px;line-height:1.8;color:#c3dfd5;background:rgba(10,20,26,.85);border:1px solid #355447;border-radius:9px;padding:10px 14px;max-width:300px;}
+#attackPrompt{position:absolute;left:50%;top:calc(50% + 55px);transform:translateX(-50%);color:#ffcb94;font-size:13px;text-shadow:0 1px 4px #000;}
+.credits{font-size:11px;color:#738996;margin-top:24px;}
+#pauseMenu .pbox{max-height:90vh;overflow-y:auto;}
+@media(max-width:700px){#start .card{padding:16px;}#hudScore{top:65px;left:10px;}#battleHud{top:112px;left:10px;font-size:11px;padding:6px 8px;}#attackPrompt{width:90%;text-align:center;}#start h1{font-size:26px;}.setting-row{gap:8px;padding:8px;}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+
+#start{padding-bottom:130px;}
+#btnStart{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);margin:0;z-index:101;box-shadow:0 0 0 6px #0b111ccc,0 8px 24px #0008;}
+#btnStart:hover{transform:translate(-50%,-2px);}
+#btnStart:active{transform:translateX(-50%);}
+
+#btnStart{white-space:nowrap;width:max-content;max-width:calc(100vw - 40px);}

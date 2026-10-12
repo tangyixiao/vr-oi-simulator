@@ -6,7 +6,8 @@
 /* =========================================================
    存档
    ========================================================= */
-const SAVE_KEY = 'oi_save_v8';
+const SAVE_KEY = 'oi_save_v9';
+const LEGACY_SAVE_KEY = 'oi_save_v8';
 let autoSaveTimer = null;
 
 function scheduleAutoSave(){
@@ -15,9 +16,10 @@ function scheduleAutoSave(){
 }
 
 function persistSave(){
-  if (!state.started || state.ended) return;
+  if (!state.started || state.ended || currentRun().runMode === 'endless') return;
   try {
     const blob = {
+      version: 9, checkpoint, runConfig: { ...currentRun() },
       code: state.code, score: state.score,
       curProb: state.curProb, elapsed: state.elapsed,
       warnCount: state.warnCount,
@@ -31,7 +33,7 @@ function persistSave(){
 
 function tryLoadSave(){
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
     if (!raw) return false;
     const o = JSON.parse(raw);
     if (!o || typeof o !== 'object') return false;
@@ -52,11 +54,13 @@ function tryLoadSave(){
     if (typeof o.elapsed === 'number') state.elapsed = o.elapsed;
     if (typeof o.warnCount === 'number') state.warnCount = o.warnCount;
     if (Array.isArray(o.achievements)) state.achievements = new Set(o.achievements);
+    if (o.runConfig) state.runConfig = Object.freeze(normalizeGameOptions(o.runConfig));
+    if (o.checkpoint) restoreCheckpoint(o.checkpoint);
     recalcScore();
     return true;
   } catch(e){ return false; }
 }
 
 function clearSave(){
-  try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(LEGACY_SAVE_KEY); } catch(e){}
 }

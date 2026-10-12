@@ -48,11 +48,13 @@ function requestLock(){
   try {
     /* 新版 Chrome 返回 Promise；Esc 后短时间内申请会被拒绝，静默即可 */
     const r = el.requestPointerLock();
-    if (r && typeof r.catch === 'function') r.catch(() => {});
+    if (r && typeof r.then === 'function') r.then(() => {
+      if (!canLockView() && document.pointerLockElement) document.exitPointerLock();
+    }).catch(() => {});
   } catch(e){}
 }
 function releaseLock(){
-  if (!pointerLocked) return;
+  if (!document.pointerLockElement) return;
   try { document.exitPointerLock(); } catch(e){}
 }
 
@@ -82,8 +84,8 @@ function updatePlayer(dt){
   lastMoveSpeed = moving ? speed : 0;
   if (moving){
     _move.normalize().multiplyScalar(speed * dt);
-    const nx = clamp(state.pos.x + _move.x, -7.5, 7.5);
-    const nz = clamp(state.pos.z + _move.z, -6.5, 6.5);
+    const nx = clamp(state.pos.x + _move.x, -worldBounds.w / 2 + 0.5, worldBounds.w / 2 - 0.5);
+    const nz = clamp(state.pos.z + _move.z, worldBounds.minZ ?? (-worldBounds.d / 2 + 0.5), worldBounds.maxZ ?? (worldBounds.d / 2 - 0.5));
     /* 分轴滑动碰撞 */
     /* 空中不碰障碍：可以翻身过桌面；落地时若卡进去会回溯到起跳点 */
     const air = !onGround;
@@ -176,9 +178,9 @@ function drawMinimap(){
   ctx.fillRect(0, 0, W, H);
 
   /* 世界：x∈[-8,8], z∈[-7,7] */
-  const sx = W / 16, sy = H / 14;
-  const tx = x => (x + 8) * sx;
-  const ty = z => (z + 7) * sy;
+  const sx = W / worldBounds.w, sy = H / worldBounds.d;
+  const tx = x => (x + worldBounds.w / 2) * sx;
+  const ty = z => (z + worldBounds.d / 2) * sy;
 
   /* 障碍 */
   ctx.fillStyle = '#2a3242';
@@ -210,7 +212,7 @@ function drawMinimap(){
   /* 保安 */
   for (const g of securityGuards){
     if (!g.userData.alive) continue;
-    const pulse = 0.7 + 0.3 * Math.sin(performance.now() * 0.01);
+    const pulse = gameOptions.blink ? 0.7 + 0.3 * Math.sin(performance.now() * 0.01) : 1;
     ctx.fillStyle = `rgba(255,68,68,${pulse})`;
     ctx.beginPath();
     ctx.arc(tx(g.group.position.x), ty(g.group.position.z), 3.2, 0, 7);

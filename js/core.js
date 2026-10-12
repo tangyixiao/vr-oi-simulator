@@ -43,6 +43,7 @@ const CONTEST_LEN = 4 * 3600;
 
 const state = {
   started: false, ended: false, frozen: false,
+  runConfig: null, chapter: 'classroom', weapon: 'fist', bestPunch: 0, chairKills: 0, npcKills: 0, realPlayTime: 0,
   view: 'world',
   elapsed: 0,
   yaw: 0, pitch: 0,
@@ -83,6 +84,25 @@ function getSphereGeo(r, sw, sh){
   if (!g){ g = new THREE.SphereGeometry(r, sw, sh); geoCache.set(k, g); }
   return g;
 }
+function getHairGeo(){
+  const k = 'person-hair';
+  if (!geoCache.has(k)) geoCache.set(k, new THREE.SphereGeometry(0.142, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62));
+  return geoCache.get(k);
+}
+function getCylinderGeo(top, bottom, h, segments){
+  const k = `c${top}|${bottom}|${h}|${segments}`;
+  if (!geoCache.has(k)) geoCache.set(k, new THREE.CylinderGeometry(top, bottom, h, segments));
+  return geoCache.get(k);
+}
+function disposeOwnedMaterials(group){
+  const shared = new Set(matCache.values());
+  const owned = new Set();
+  group.traverse(o => {
+    if (o.material && !shared.has(o.material)) owned.add(o.material);
+  });
+  for (const m of owned) m.dispose();
+}
+
 function mat(color, opts){
   const k = color + '|' + JSON.stringify(opts || {});
   let m = matCache.get(k);

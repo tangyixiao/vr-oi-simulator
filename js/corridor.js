@@ -49,7 +49,9 @@ function updateCorridor(realDt){
     corridorProgress = 1;
     corridorDone = true;
     updateCorridorUI();
+    const generation = battle.generation, phase = corridorPhase;
     setTimeout(() => {
+      if (state.ended || battle.generation !== generation || state.view !== 'corridor' || corridorPhase !== phase) return;
       corridorUI.classList.add('hidden');
       if (corridorPhase === 'toilet'){
         startBathroom();

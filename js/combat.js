@@ -7,56 +7,28 @@
    打老师 / 打保安
    ========================================================= */
 function punchTeacher(){
-  if (state.view !== 'world' || state.ended || state.frozen) return;
-  if (!teacher || teacher.userData.leaving) return;
-  teacher.userData.leaving = true;
-
-  if (!inPunchRange(teacher.group.position.x, teacher.group.position.z)){
-    teacher.userData.leaving = false;
-    toast('你离监考老师太远了。', 1400);
-    return;
-  }
-  const dx = state.pos.x - teacher.group.position.x;
-  const dz = state.pos.z - teacher.group.position.z;
-  teacher.group.rotation.y = Math.atan2(dx, dz);
-  teacher.armL.rotation.x = -1.4;
-  teacher.armR.rotation.x = -1.4;
-
-  audio.punch();
-
-  /* 打击感：全身部件爆散 + 视角回弹 + 命中顿帧 */
-  spawnBodyDebris(teacher.group, { speed: 3.2 });
-  kickView(0.045, (Math.random() - 0.5) * 0.05);
-  hitStop = 0.07;
-
-  toast('\u{1F44A} 你一拳打在了监考老师的胳膊上……', 1600);
-  unlockAch('teacher_hit');
-  /* 监考已倒：从这一刻起同学也可以打了 */
+  if (!canFight() || !teacher || teacher.userData.leaving) return;
+  if (!inPunchRange(teacher.group.position.x, teacher.group.position.z)) return;
+  const target = teacher;
+  target.userData.leaving = true;
+  spawnBodyDebris(target.group, { speed: 3.2 });
+  scene.remove(target.group);
+  disposeOwnedMaterials(target.group);
+  teacher = null;
   state.teacherDown = true;
-  /* 亮出血条 */
+  state.teacherWarnActive = false;
+  state.wanderTimer = 0;
   revealHp();
-
-  setTimeout(() => {
-    if (teacher){
-      scene.remove(teacher.group);
-      teacher = null;
-    }
-    toast('监考老师夺门而出，叫来了保安！', 2200);
-    audio.beep(880, 0.15, 0.05, 'sawtooth');
-    audio.beep(440, 0.25, 0.05, 'sawtooth');
-
-    setTimeout(() => {
-      if (state.ended) return;
-      spawnTwoGuards();
-      toast('\u26A0 两名保安从门口冲了进来！', 2600);
-      audio.beep(140, 0.4, 0.07, 'sawtooth');
-    }, 700);
-  }, 800);
+  unlockAch('teacher_hit');
+  hitFeedback(1);
+  beginBattle('classroom', currentRun().guardTarget);
+  captureCheckpoint();
+  toast('监考老师跑了！保安正在赶来。左键攻击 · R 拾取空椅子', 3200);
 }
 
 /* ---------- 攻击范围：100 米、360°，无需对准 ---------- */
 function inPunchRange(x, z){
-  return Math.hypot(x - state.pos.x, z - state.pos.z) <= GUARD_PUNCH_RANGE;
+  return targetInAttackRange(state.pos, state.yaw, { x, z }, attackProfile(currentRun(), state.weapon));
 }
 
 /* 统计当前拳范围内的所有活保安 */
@@ -74,14 +46,13 @@ function guardsInPunchRange(){
 function killGuard(g){
   if (!g || !g.userData.alive) return true;
   g.userData.alive = false;
+  for (const light of guardLights) if (light.parent === g.group) { scene.add(light); light.intensity = 0; }
   /* 先炸散再移除组：部件已摘到场景里，带物理飞走 */
   spawnBodyDebris(g.group, { speed: 3.9 });
   scene.remove(g.group);
+  disposeOwnedMaterials(g.group);
   state.guardKills++;
-  if (state.guardKills >= GUARD_MAX_TOTAL){
-    openFinalDoor();
-    return false;
-  }
+  battle.kills++;
   return true;
 }
 
@@ -89,64 +60,41 @@ function killGuard(g){
 function openFinalDoor(){
   if (state.doorOpen || state.ended) return;
   openTheDoor();
-  audio.beep(880, 0.3, 0.06, 'sine');
-  setTimeout(() => audio.beep(1320, 0.4, 0.05, 'sine'), 260);
-  toast('走廊尽头那扇门，开了。', 3000);
-  /* 慢放 0.4s 再弹窗，让开门的动作先被看见 */
-  setTimeout(() => {
-    if (state.ended) return;
-    openDialog({
-      title: '\u26A0 警告',
-      text: '门开了。\n\n' +
-            '不是考场这一扇——是走廊尽头那扇从来打不开的门。\n' +
-            '它开的时候没有声音，只有光。白得不像这个考场里该有的东西。\n\n' +
-            '保安们停下了动作，齐刷刷望向那个方向，然后让开了路。\n' +
-            '广播里只剩电流噪音。你听见过这样的召唤吗？',
-      options: [{ label: '去看看', cb: dlg => closeDialog(dlg) }]
-    });
-  }, 1400);
+  toast('考场已清空！靠近白光出口按 E，结束本局或继续校园突围。', 4200);
+  audio.beep(880, 0.25, 0.05);
 }
 
-/* 真的走出白光：此时才结算 */
 function walkOutOfTheRoom(){
-  if (state.ended) return;
-  endByTotalVictory();
+  if (!canFight() || !battle.ready) return;
+  openDialog({ title: '第一关完成',
+    text: `击倒 ${battle.kills} / ${battle.target} 名保安。\n\n门外还有走廊和庭院。要继续突围吗？`,
+    options: [
+      { label: '继续校园突围', cb: dlg => { closeDialog(dlg); enterCampus(); } },
+      { label: '走进白光 · 结束本局', cb: dlg => { closeDialog(dlg); endByTotalVictory(); } }
+    ] });
+}
+
+function hitFeedback(n){
+  animateWeaponSwing();
+  if (state.weapon === 'chair') audio.beep(95, 0.15, 0.06, 'triangle');
+  else audio.punch();
+  const scale = gameOptions.comfort ? 0.18 : 1;
+  kickView(0.05 * scale, (Math.random() - 0.5) * 0.05 * scale);
+  hitStop = gameOptions.comfort ? 0.025 : 0.09 + Math.min(0.06, n * 0.02);
 }
 
 /* 一拳扫倒拳范围内所有保安（不是只有一个） */
 function punchGuardsArc(){
+  if (!canFight()) return;
   const victims = guardsInPunchRange();
-  if (!victims.length){
-    toast('你的拳头抡了个空。', 1100);
-    return;
-  }
-
-  let n = 0;
-  for (const g of victims){
-    if (!killGuard(g)){ n++; break; }     // 触发隐藏结局，停止结算
-    n++;
-  }
-  if (state.ended) return;
-
-  /* 打击感：视角回弹 + 顿帧（比打老师更重），多杀更猛 */
-  audio.punch();
-  kickView(0.06, (Math.random() - 0.5) * 0.06);
-  hitStop = 0.09 + Math.min(0.06, n * 0.02);
-
-  toast(n > 1 ? `\u{1F44A} 一拳放倒了 ${n} 名保安！` : '\u{1F44A} 一拳撂倒了一个保安！', 1500);
+  if (!victims.length){ animateWeaponSwing(); return; }
+  for (const g of victims) killGuard(g);
+  recordPunch(victims.length);
+  hitFeedback(victims.length);
+  toast(`一击放倒 ${victims.length} 名保安！`, 1200);
   checkGuardKillMilestones(state.guardKills);
-  /* 一整拳只掷一次警告，避免连杀弹出一堆面板 */
   maybeGuardWarning();
-
-  /* 每倒一名补一批，错开进场避免叠在一起 */
-  for (let i = 0; i < n; i++){
-    setTimeout(() => {
-      if (state.ended) return;
-      spawnTwoGuards();
-      if (i === 0) toast('门口又冲进来两名替补保安……', 1700);
-      audio.beep(200, 0.3, 0.06, 'sawtooth');
-    }, 900 + i * 260);
-  }
+  finishBattleIfReady();
 }
 
 /* =========================================================
@@ -193,7 +141,7 @@ function updateGuards(realDt, t){
     g.head.rotation.y = Math.sin(t * 2 + g.phase) * 0.25;
 
     if (g.warnLight){
-      const blink = 0.5 + 0.5 * Math.sin(t * 6 + g.phase);
+      const blink = gameOptions.blink ? 0.5 + 0.5 * Math.sin(t * 6 + g.phase) : 0.35;
       g.warnLight.material.color.setRGB(1, blink * 0.4, blink * 0.4);
       g.userData.blink = blink;
     }
@@ -216,19 +164,9 @@ let nearestGuardDist = Infinity;
 
 function endByGuards(){
   if (state.ended) return;
-  state.ended = true;
-  hideAllPanels();
-  for (const g of securityGuards) scene.remove(g.group);
-  securityGuards.length = 0;
-
-  audio.beep(110, 0.5, 0.08, 'sawtooth');
-  audio.beep(80, 0.7, 0.06, 'sawtooth');
-
-  $('endTitle').textContent = '被 保 安 抓 走';
-  $('endSub').textContent = '两名保安一左一右架住了你，你被拖出了考场。';
-  showEnding(0, '你在考场上公然殴打监考老师，性质恶劣。\n' +
-    '本次比赛成绩作废，并记入诚信档案。\n\n' +
-    '遵守考场纪律，人人有责。\n下次别再打老师了。');
+  if (currentRun().runMode === 'endless') { endEndless('血量耗尽'); return; }
+  persistSave();
+  finishRun('被 保 安 抓 走', '血量耗尽。答题娱乐分保留；可从最近检查点重试。', true);
 }
 
 /* 保安抓住玩家：有血条就扣 1 格，没有血条直接结局。
@@ -320,72 +258,21 @@ function checkGuardKillMilestones(k){
 }
 
 function maybeGuardWarning(){
-  if (!guardWarnRoll(state.guardKills, Math.random)) return;
-
-  /* 通报弹出：整个世界放慢到 0.1x（考试计时不受影响），
-     选项落地后恢复原速 */
-  beginSlowMo();
-
+  if (state.guardKills < 10 || state.realPlayTime - battle.broadcastAt < 20 || Math.random() >= 0.04) return;
+  battle.broadcastAt = state.realPlayTime;
   const lines = GUARD_WARN_LINES[guardWarnTier(state.guardKills)];
-  const line = lines[Math.floor(Math.random() * lines.length)];
-  /* 两条不重复的叛逆台词 + 一个配合选项 */
-  const pool = GUARD_WARN_DEFY.slice();
-  const defyA = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-  const defyB = pool[Math.floor(Math.random() * pool.length)];
-
-  slowMoDlg = openDialog({
-    title: '\u26A0 保安队 · 第 ' + state.guardKills + ' 次通报',
-    text: line,
-    options: [
-      {
-        label: defyA,
-        cb: dlg => defyGuardWarning(dlg)
-      },
-      {
-        label: defyB,
-        cb: dlg => defyGuardWarning(dlg)
-      }
-    ]
-  });
-}
-
-/* 嘴硬的代价：违抗计数 +1（推高紧张值）+ 立刻叫来更多保安 */
-function defyGuardWarning(dlg){
-  endSlowMo();
-  closeDialog(dlg);
-  state.defiance = (state.defiance || 0) + 1;
-  toast('对面沉默了两秒——然后更多脚步声涌了进来。', 2200);
-  audio.beep(180, 0.25, 0.06, 'sawtooth');
-  spawnTwoGuards();
+  toast('广播：' + lines[Math.floor(Math.random() * lines.length)], 3000);
 }
 
 /* =========================================================
-   隐藏结局 · 一人军队（击倒全部 200 名保安）
+   考场通关结局
    ========================================================= */
 function endByTotalVictory(){
-  if (state.ended) return;
-  state.ended = true;
-  hideAllPanels();
-  for (const g of securityGuards) scene.remove(g.group);
-  securityGuards.length = 0;
-  unlockAch('army');
-
-  $('endTitle').textContent = '无 人 能 挡';
-  $('endSub').textContent = '第 200 名保安倒下了。然后，你走进了那片白光。';
-  showEnding(state.totalScore,
-    '门在身后合上。没有风，没有声音，也没有人追出来。\n\n' +
-    '你站在光里回头看：两百具叠在一起的制服，帽檐、徽章、对讲机散了一地。\n' +
-    '监考老师不知什么时候已经跑了，教务处的电话打到了天亮。\n' +
-    '来的人不认识你，只认识这个考场。他们后来把整层楼封了，\n' +
-    '只在记录里写：那个考生赢了，然后走了。\n\n' +
-    '《NOI 竞赛纪律》最后一页写着：\n' +
-    '“纪律需要人来执行。如果执行纪律的人都不够了，\n' +
-    '那考场里就只剩下一条纪律：别惹写代码的人。”\n\n' +
-    '隐藏结局 · 一人军队　　击倒保安 200 / 200');
-  clearSave();
+  finishRun('无 人 能 挡', `考场 ${battle.kills} / ${battle.target} 名保安全部倒下，你走进了白光。`);
 }
 
 function hideAllPanels(){
+  stopBattle();
   /* 3D 悬浮弹窗也要收场（弹窗不再是 DOM，无法用 classList 隐藏） */
   dismissDialogs();
   ['hud', 'pauseMenu', 'codeUI', 'paperUI', 'corridorUI',

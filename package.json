@@ -1,0 +1,12 @@
+{
+  "name": "vr-oi-simulator",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "test:browser": "node tests/browser-smoke.cjs && node tests/density-smoke.cjs",
+    "check": "node tools/check-syntax.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.0"
+  }
+}

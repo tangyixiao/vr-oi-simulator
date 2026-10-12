@@ -54,7 +54,7 @@ function damagePlayer(g, now){
   const r = guardHitResult(state.hpVisible, state.hp);
   /* 命中反馈：窗口闪红 + 左下角提示（与出拳闪白是两回事） */
   if (redFlash){
-    redFlash.style.opacity = '0.55';
+    redFlash.style.opacity = gameOptions.comfort ? '0.16' : '0.55';
     setTimeout(() => { redFlash.style.opacity = '0'; }, 200);
   }
   audio.beep(160, 0.22, 0.07, 'sawtooth');

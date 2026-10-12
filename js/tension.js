@@ -88,6 +88,7 @@ function updateTension(dt, kills, nearestDist, playerSpeed){
 }
 
 function applyTension(t, dt){
+  if (gameOptions.comfort) t *= 0.2;
   const cvs = $('scene');
 
   /* 1. 整体调色：压暗 + 对比度 + 去饱和（只作用于 WebGL 画面，不污染 HUD） */

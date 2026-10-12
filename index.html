@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>VR OI 考场 · 模拟器</title>
-<link rel="stylesheet" href="assets/css/main.css">
+<title>VR OI · 校园突围</title>
+<link rel="stylesheet" href="assets/css/main.css?v=campus-20261012">
 </head>
 <body>
 
@@ -18,6 +18,8 @@
   <div id="hudTimer">04:00:00</div>
   <div id="hudScore">总分 <b>0</b> / 400</div>
   <div id="hudProbs"></div>
+  <div id="battleHud"></div>
+  <div id="attackPrompt"></div>
   <button id="btnSettings">&#x2699; 设置</button>
   <button id="btnEnd">交卷离场</button>
 </div>
@@ -30,7 +32,7 @@
 
 <!-- ===================== 开始界面 ===================== -->
 <div id="start">
-  <h1>VR OI 考场</h1>
+  <h1>VR OI · 校园突围</h1>
   <div class="sub">NATIONAL OLYMPIAD IN INFORMATICS · VIRTUAL ARENA</div>
   <div class="card">
     <b>考试须知</b><br>
@@ -38,12 +40,21 @@
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动 &nbsp;·&nbsp;
     <kbd>Shift</kbd> 疾走 &nbsp;·&nbsp; <kbd>空格</kbd> 跳跃 &nbsp;·&nbsp;
     <b>移动鼠标</b> 转动视角（FPS 视角锁定）<br>
-    <kbd>E</kbd> 或 <kbd>鼠标左键</kbd> 交互（电脑 · 草稿纸 · 水杯 · 出门）；<br>
-    <kbd>鼠标左键</kbd> 出拳：<b>半径 100 米 · 360° · 无冷却</b>，一拳扫倒范围内全部保安，可连续点击<br>
+    <kbd>E</kbd> 交互（电脑 · 草稿纸 · 水杯 · 出门）；<kbd>R</kbd> 拾取 / 放下空椅子；<br>
+    <kbd>鼠标左键</kbd> 攻击：<b>无冷却，可连续点击</b>；打倒老师开启保安战斗<br>
     <kbd>F</kbd> 干扰同学 &nbsp;·&nbsp;
     <kbd>H</kbd> 举手呼叫监考 &nbsp;·&nbsp; <kbd>Esc</kbd> 释放鼠标 / 打开设置<br><br>
-    弹窗操作：<b>视线停留 1 秒</b>自动确认，也可直接左键点击。<br><br>
+    弹窗操作：<b>视线停留 1 秒</b>或按 <kbd>1</kbd><kbd>2</kbd> 选择。<br>答题分数属于娱乐模拟，<b>不编译或运行 C++</b>。<br><br>
 
+    <div class="set-title">选择本局玩法</div>
+    <div class="setting-row"><label for="combatMode">战斗模式</label><select id="combatMode"><option value="power">爽快模式</option><option value="challenge">挑战模式</option></select></div>
+    <div id="modeDescription" class="setting-help"></div>
+    <div class="setting-row"><label for="runMode">游戏流程</label><select id="runMode"><option value="campaign">剧情 · 考场 → 校园突围</option><option value="endless">无尽 · 挑战最佳战绩</option></select></div>
+    <div class="setting-row"><label for="guardTarget">考场保安数</label><input type="number" id="guardTarget" min="50" max="5000" step="1" value="200"><span>50～5000</span></div>
+    <div class="count-presets"><button type="button" data-guard-target="200">200 人</button><button type="button" data-guard-target="500">500 人</button><button type="button" data-guard-target="1000">1000 人</button></div>
+    <div id="endlessBest" class="setting-help"></div>
+    <label id="resumeRow" class="setting-help hidden"><input id="resumeSave" type="checkbox" checked> 继续上次进度（战斗从最近检查点重开；沿用存档玩法）</label>
+    <div id="graphicsStart"></div>
     <div class="set-title">视角手感调校</div>
     <div class="setting-row">
       <label>鼠标灵敏度</label>
@@ -70,12 +81,13 @@
       <span class="toggle on" id="shakeToggleStart"></span>
     </div>
   </div>
-  <button id="btnStart">进 入 考 场</button>
+  <button id="btnStart">进入考场</button>
   <button id="btnClearSaveStart" style="margin:14px auto 0;display:block;padding:9px 26px;
     background:transparent;border:1px solid #4a3a3a;color:#c08a8a;border-radius:8px;
     font-size:12px;cursor:pointer;font-family:inherit;letter-spacing:2px">
   清空存档
   </button>
+  <div class="credits">原作 Deng Ziqian · 2.0 改编 Jian_Yu / aakaakii · 校园突围 Tangyixiao · MIT</div>
 </div>
 
 <!-- ===================== 暂停菜单 ===================== -->
@@ -83,6 +95,8 @@
   <div class="pbox">
     <h2>设置</h2>
     <div class="sub">比赛时间不会因为打开这个面板而暂停。</div>
+    <div id="runSummary" class="setting-help"></div>
+    <div id="graphicsPause"></div>
     <div class="set-title" style="border-top:none;margin-top:10px;padding-top:0">视角手感</div>
     <div class="setting-row">
       <label>鼠标灵敏度</label>
@@ -141,7 +155,7 @@
       <section class="ide-editor">
         <div class="bar">
           <span id="fileName">T1.cpp</span>
-          <span id="cursorInfo">Ln 1, Col 1 &nbsp;·&nbsp; C++14 &nbsp;·&nbsp; g++ -O2</span>
+          <span id="cursorInfo">Ln 1, Col 1 &nbsp;·&nbsp; C++14 文本 &nbsp;·&nbsp; 娱乐模拟评分</span>
         </div>
         <div class="editor-wrap">
           <pre id="codeHighlight" aria-hidden="true"></pre>
@@ -229,7 +243,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="assets/vendor/three.min.js?v=campus-20261012"></script>
 
 <!-- Three.js 加载失败兜底（需紧跟 CDN 脚本尽早执行） -->
 <script>
@@ -237,55 +251,59 @@ if (typeof THREE === 'undefined'){
   document.getElementById('start').innerHTML =
     '<div style="padding:80px 20px;text-align:center;color:#f88;font-size:16px;line-height:2">' +
     '? Three.js 加载失败<br>' +
-    '<span style="font-size:13px;color:#aaa">请检查网络能否访问 cdn.jsdelivr.net，' +
-    '或下载 three.min.js 到本地后改用相对路径</span></div>';
+    '<span style="font-size:13px;color:#aaa">请刷新页面重试，' +
+    '或重新下载完整游戏文件。</span></div>';
   throw new Error('THREE not loaded');
 }
 </script>
 
 <!-- 静态数据 -->
-<script src="assets/keywords.js"></script>
-<script src="assets/problems/_pool.js"></script>
-<script src="assets/problems/P14962.js"></script>
-<script src="assets/problems/P14963.js"></script>
-<script src="assets/problems/P14964.js"></script>
-<script src="assets/problems/P14965.js"></script>
-<script src="assets/problems/P15861.js"></script>
-<script src="assets/problems/P15862.js"></script>
-<script src="assets/problems/P15863.js"></script>
-<script src="assets/problems/P15864.js"></script>
-<script src="assets/problems/P16184.js"></script>
-<script src="assets/problems/P16185.js"></script>
-<script src="assets/problems/P16186.js"></script>
-<script src="assets/problems/P16187.js"></script>
-<script src="assets/problems/P17431.js"></script>
-<script src="assets/problems/P17432.js"></script>
-<script src="assets/problems/P17433.js"></script>
-<script src="assets/problems/P17434.js"></script>
+<script src="assets/keywords.js?v=campus-20261012"></script>
+<script src="assets/problems/_pool.js?v=campus-20261012"></script>
+<script src="assets/problems/P14962.js?v=campus-20261012"></script>
+<script src="assets/problems/P14963.js?v=campus-20261012"></script>
+<script src="assets/problems/P14964.js?v=campus-20261012"></script>
+<script src="assets/problems/P14965.js?v=campus-20261012"></script>
+<script src="assets/problems/P15861.js?v=campus-20261012"></script>
+<script src="assets/problems/P15862.js?v=campus-20261012"></script>
+<script src="assets/problems/P15863.js?v=campus-20261012"></script>
+<script src="assets/problems/P15864.js?v=campus-20261012"></script>
+<script src="assets/problems/P16184.js?v=campus-20261012"></script>
+<script src="assets/problems/P16185.js?v=campus-20261012"></script>
+<script src="assets/problems/P16186.js?v=campus-20261012"></script>
+<script src="assets/problems/P16187.js?v=campus-20261012"></script>
+<script src="assets/problems/P17431.js?v=campus-20261012"></script>
+<script src="assets/problems/P17432.js?v=campus-20261012"></script>
+<script src="assets/problems/P17433.js?v=campus-20261012"></script>
+<script src="assets/problems/P17434.js?v=campus-20261012"></script>
 
 <!-- 逻辑模块（传统脚本，共享全局作用域；顺序即依赖顺序） -->
-<script src="js/judge.js"></script>
-<script src="js/npc-gen.js"></script>
-<script src="js/problems.js"></script>
-<script src="js/core.js"></script>
-<script src="js/dialog3d.js"></script>
-<script src="js/feedback.js"></script>
-<script src="js/hp.js"></script>
-<script src="js/world.js"></script>
-<script src="js/interact.js"></script>
-<script src="js/combat.js"></script>
-<script src="js/debris.js"></script>
-<script src="js/npc.js"></script>
-<script src="js/teacher.js"></script>
-<script src="js/corridor.js"></script>
-<script src="js/ide.js"></script>
-<script src="js/paper.js"></script>
-<script src="js/look.js"></script>
-<script src="js/reticle.js"></script>
-<script src="js/tension.js"></script>
-<script src="js/postfx.js"></script>
-<script src="js/save.js"></script>
-<script src="js/ending.js"></script>
-<script src="js/main.js"></script>
+<script src="js/judge.js?v=campus-20261012"></script>
+<script src="js/npc-gen.js?v=campus-20261012"></script>
+<script src="js/problems.js?v=campus-20261012"></script>
+<script src="js/core.js?v=campus-20261012"></script>
+<script src="js/gameplay.js?v=campus-20261012"></script>
+<script src="js/weapons.js?v=campus-20261012"></script>
+<script src="js/dialog3d.js?v=campus-20261012"></script>
+<script src="js/feedback.js?v=campus-20261012"></script>
+<script src="js/hp.js?v=campus-20261012"></script>
+<script src="js/world.js?v=campus-20261012"></script>
+<script src="js/interact.js?v=campus-20261012"></script>
+<script src="js/combat.js?v=campus-20261012"></script>
+<script src="js/debris.js?v=campus-20261012"></script>
+<script src="js/npc.js?v=campus-20261012"></script>
+<script src="js/teacher.js?v=campus-20261012"></script>
+<script src="js/corridor.js?v=campus-20261012"></script>
+<script src="js/ide.js?v=campus-20261012"></script>
+<script src="js/paper.js?v=campus-20261012"></script>
+<script src="js/look.js?v=campus-20261012"></script>
+<script src="js/reticle.js?v=campus-20261012"></script>
+<script src="js/tension.js?v=campus-20261012"></script>
+<script src="js/postfx.js?v=campus-20261012"></script>
+<script src="js/save.js?v=campus-20261012"></script>
+<script src="js/ending.js?v=campus-20261012"></script>
+<script src="js/campaign.js?v=campus-20261012"></script>
+<script src="js/upgrade-ui.js?v=campus-20261012"></script>
+<script src="js/main.js?v=campus-20261012"></script>
 </body>
 </html>

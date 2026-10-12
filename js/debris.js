@@ -204,6 +204,11 @@ function spawnBodyDebris(group, opt){
   if (!group) return;
   opt = opt || {};
   const speed = opt.speed || 3.4;
+  const cap = gameOptions.fragments ? effectiveDebrisCap() : 0;
+  // Update the collision planes without allocating vectors each frame.
+  DEBRIS_PLANES[1].d = -worldBounds.h;
+  DEBRIS_PLANES[2].d = DEBRIS_PLANES[3].d = -worldBounds.w / 2;
+  DEBRIS_PLANES[4].d = DEBRIS_PLANES[5].d = -worldBounds.d / 2;
   group.updateMatrixWorld(true);
 
   const parts = [];
@@ -212,7 +217,12 @@ function spawnBodyDebris(group, opt){
   /* 视线前向（用于计算每个部件的视角偏移量） */
   _dbFwd.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
 
+  const sourceMaterials = new Set(parts.map(p => p.material));
   for (const p of parts){
+    if (p.userData.contactShadow || debrisList.length >= cap){
+      if (p.parent) p.parent.remove(p);
+      continue;
+    }
     p.updateWorldMatrix(true, false);
     p.matrixWorld.decompose(_dbPos, _dbQuat, _dbScl);
 
@@ -265,6 +275,8 @@ function spawnBodyDebris(group, opt){
     /* 从角色身上摘掉该部件：打爆即分离，不再跟随角色动画 */
     if (p.parent) p.parent.remove(p);
   }
+  const shared = new Set(matCache.values());
+  for (const m of sourceMaterials) if (!shared.has(m)) m.dispose();
 }
 
 /* ---------- 每帧物理 ---------- */

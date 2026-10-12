@@ -14,7 +14,7 @@ const WARNINGS = [
 ];
 
 function triggerTeacherWarning(){
-  if (!teacher) return;
+  if (!teacher || state.teacherDown || state.ended) return;
   state.warnCount++;
   state.wanderCount++;
   state.teacherWarnActive = true;
@@ -22,7 +22,7 @@ function triggerTeacherWarning(){
   teacher.userData.mode = 'approach';
 }
 function applyWanderPenalty(){
-  if (state.wanderPenaltyApplied) return;
+  if (!teacher || state.teacherDown || state.ended || state.wanderPenaltyApplied) return;
   state.wanderPenaltyApplied = true;
 
   /* 剩余虚拟时间强制回 10 分钟 */
@@ -49,6 +49,7 @@ function applyWanderPenalty(){
 }
 
 function showTeacherWarning(){
+  if (!teacher || state.teacherDown || state.ended) return;
   const idx = Math.min(state.warnCount - 1, WARNINGS.length - 1);
   /* 3D 悬浮弹窗：不切视图、不释放鼠标吸附，玩家可边挨骂边转身 */
   openDialog({
