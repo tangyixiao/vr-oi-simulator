@@ -33,12 +33,9 @@ function updateInteract(){
   for (let i = 0; i < securityGuards.length; i++){
     const g = securityGuards[i];
     if (!g.userData.alive) continue;
-    const d = Math.hypot(state.pos.x - g.group.position.x, state.pos.z - g.group.position.z);
-    if (d < GUARD_PUNCH_RANGE){
-      /* 扇形窗口内才判定命中；出拳会扫倒范围内全部保安 */
-      if (!inAttackArc(g.group.position.x, g.group.position.z)) continue;
+    if (inPunchRange(g.group.position.x, g.group.position.z)){
       actionSpace = { fn: punchGuardsArc };
-      const txt = `[ 左键 ] 出拳（拳锋 ${GUARD_PUNCH_RANGE.toFixed(1)}m · 前方扇形）`;
+      const txt = `[ 左键 ] 出拳（半径 ${GUARD_PUNCH_RANGE}m · 360° · 无冷却）`;
       if (lastInteractKey !== txt){ promptEl.textContent = txt; lastInteractKey = txt; }
       promptEl.classList.remove('hidden');
       return;
@@ -47,11 +44,8 @@ function updateInteract(){
 
   /* 老师 → 空格 */
   if (teacher && !teacher.userData.leaving){
-    const d = Math.hypot(state.pos.x - teacher.group.position.x,
-                         state.pos.z - teacher.group.position.z);
-    /* 同样要求落在视角扇形窗口内 */
-    if (d < 2.4 && teacher.userData.mode !== 'warn' &&
-        inAttackArc(teacher.group.position.x, teacher.group.position.z)){
+    if (teacher.userData.mode !== 'warn' &&
+        inPunchRange(teacher.group.position.x, teacher.group.position.z)){
       actionSpace = { fn: punchTeacher };
       const txt = '[ 左键 ] 殴打监考老师（后果自负）';
       if (lastInteractKey !== txt){ promptEl.textContent = txt; lastInteractKey = txt; }
@@ -65,22 +59,18 @@ function updateInteract(){
     const n = npcs[i];
     const ud = n.userData;
     if (!ud) continue;
+    /* 攻击只按身体位置判定，不受座位交互距离限制。 */
+    if (state.teacherDown && ud.state === 'seated' &&
+        inPunchRange(n.group.position.x, n.group.position.z)){
+      actionSpace = { fn: () => downNPC(n) };
+      const txt = `[ 左键 ] 殴打同学 ${ud.name}（${GUARD_PUNCH_RANGE}m · 360° · 无冷却）`;
+      if (lastInteractKey !== txt){ promptEl.textContent = txt; lastInteractKey = txt; }
+      promptEl.classList.remove('hidden');
+      return;
+    }
     const d = Math.hypot(state.pos.x - ud.seatX, state.pos.z - ud.seatZ);
     if (d < 2.3){
       if (ud.state === 'seated'){
-        /* 监考倒台之后，同学也进入可攻击范围（此前不应有此交互） */
-        if (state.teacherDown){
-          const dBody = Math.hypot(state.pos.x - n.group.position.x,
-                                   state.pos.z - n.group.position.z);
-          if (dBody <= GUARD_PUNCH_RANGE &&
-              inAttackArc(n.group.position.x, n.group.position.z)){
-            actionSpace = { fn: () => downNPC(n) };
-            const txt = `[ 左键 ] 殴打同学 ${ud.name}（他已经不敢告老师了）`;
-            if (lastInteractKey !== txt){ promptEl.textContent = txt; lastInteractKey = txt; }
-            promptEl.classList.remove('hidden');
-            return;
-          }
-        }
         /* 干扰的判定从"座位 2.3m"收紧到"他的人"：以身体实际位置为圆心 */
         const dBody = Math.hypot(state.pos.x - n.group.position.x,
                                  state.pos.z - n.group.position.z);
@@ -146,6 +136,8 @@ function updateInteract(){
 
 function doInteract(key){
   if (state.view !== 'world' || state.ended || state.frozen) return;
+  /* 每次输入立即重新选目标，不等待主循环的 80ms 提示刷新。 */
+  updateInteract();
   if (key === 'e'     && actionE)     actionE.fn();
   if (key === 'f'     && actionF)     actionF.fn();
   if (key === 'space' && actionSpace) actionSpace.fn();

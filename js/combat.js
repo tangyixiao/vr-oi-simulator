@@ -11,20 +11,11 @@ function punchTeacher(){
   if (!teacher || teacher.userData.leaving) return;
   teacher.userData.leaving = true;
 
-  const d = Math.hypot(state.pos.x - teacher.group.position.x,
-                       state.pos.z - teacher.group.position.z);
-  if (d > 2.4){
+  if (!inPunchRange(teacher.group.position.x, teacher.group.position.z)){
     teacher.userData.leaving = false;
     toast('你离监考老师太远了。', 1400);
     return;
   }
-  /* 同样受视角扇形窗口约束 */
-  if (!inAttackArc(teacher.group.position.x, teacher.group.position.z)){
-    teacher.userData.leaving = false;
-    toast('你一拳打向了空气——对准老师再来。', 1300);
-    return;
-  }
-
   const dx = state.pos.x - teacher.group.position.x;
   const dz = state.pos.z - teacher.group.position.z;
   teacher.group.rotation.y = Math.atan2(dx, dz);
@@ -63,28 +54,17 @@ function punchTeacher(){
   }, 800);
 }
 
-/* ---------- 攻击判定窗口 ----------
-   距离之外再加视角扇形：只有落在准星前 GUARD_PUNCH_ARC 弧度内的
-   目标才算"在拳范围内"。半角 0.9rad ≈ 51°，比 360° 球判定收紧很多。 */
-const GUARD_PUNCH_ARC = 0.4;
-
-function inAttackArc(x, z){
-  const fx = -Math.sin(state.yaw), fz = -Math.cos(state.yaw);
-  const tx = x - state.pos.x, tz = z - state.pos.z;
-  const len = Math.hypot(tx, tz);
-  if (len < 1e-4) return true;                 // 贴身也算
-  return (fx * tx + fz * tz) / len > Math.cos(GUARD_PUNCH_ARC);
+/* ---------- 攻击范围：100 米、360°，无需对准 ---------- */
+function inPunchRange(x, z){
+  return Math.hypot(x - state.pos.x, z - state.pos.z) <= GUARD_PUNCH_RANGE;
 }
 
-/* 统计当前拳范围内（距离 + 扇形）的活保安 */
+/* 统计当前拳范围内的所有活保安 */
 function guardsInPunchRange(){
   const out = [];
   for (const g of securityGuards){
     if (!g.userData.alive) continue;
-    const d = Math.hypot(state.pos.x - g.group.position.x,
-                         state.pos.z - g.group.position.z);
-    if (d <= GUARD_PUNCH_RANGE + 0.3 &&
-        inAttackArc(g.group.position.x, g.group.position.z)) out.push(g);
+    if (inPunchRange(g.group.position.x, g.group.position.z)) out.push(g);
   }
   return out;
 }

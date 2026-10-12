@@ -548,7 +548,7 @@ const securityGuards = [];
 const GUARD_SPEED_BASE = 0.55;
 const GUARD_SPAWN_DIST = 5.0;
 const GUARD_HIT_RADIUS = 0.95;
-const GUARD_PUNCH_RANGE = 2.2;
+const GUARD_PUNCH_RANGE = 100; // 全场级拳击半径（老师、保安、同学共用）
 const GUARD_MAX_TOTAL = 200;   // 全场最多排出多少保安；耗尽后不再补充
 
 /* ---------- 假接触阴影：径向渐变贴片，比真阴影便宜且可随紧张态加深 ---------- */

@@ -14,10 +14,11 @@ function bindEvents(){
        避免点击造成状态中断而进度环仍残留的问题；此时点击仅用于
        在指针意外释放时重新捕获鼠标 */
     if (hasDialog()){ if (!pointerLocked) requestLock(); return; }
+    updateInteract();
     /* 未锁定时：有可攻击目标就直接出拳（锁定失效也能打），
        否则重新捕获鼠标——避免误触其他交互 */
     if (!pointerLocked && !actionSpace){ requestLock(); return; }
-    /* 左键即原空格键语义：准星指向可攻击目标（老师/保安，且在范围内）
+    /* 左键即原空格键语义：范围内存在可攻击目标
        时执行攻击，否则执行普通交互 */
     doInteract(actionSpace ? 'space' : 'e');
   });
@@ -79,7 +80,10 @@ function bindEvents(){
       if (hasDialog()) activateDialogButton();
       /* 与左键同优先级：可攻击则出拳，否则交互。
          这条路径不依赖指针锁定，锁定失效时也能打 */
-      else doInteract(actionSpace ? 'space' : 'e');
+      else {
+        updateInteract();
+        doInteract(actionSpace ? 'space' : 'e');
+      }
     }
     if (e.code === 'KeyF'){ doInteract('f'); }
     if (e.code === 'Space'){
