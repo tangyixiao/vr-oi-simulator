@@ -6,6 +6,10 @@ const QUALITY = {
   high: { guards: 96, debris: 480, dpr: 1.5 }
 };
 const GAME_SETTINGS_KEY = 'oi_game_v1';
+function normalizeGuardHealth(value){
+  const n = typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
+  return Number.isFinite(n) ? Math.max(10, Math.min(2000, Math.round(n / 10) * 10)) : 100;
+}
 function normalizeGameOptions(input){
   const o = input && typeof input === 'object' ? input : {};
   const n = Number(o.guardTarget);
@@ -15,6 +19,7 @@ function normalizeGameOptions(input){
     runMode: o.runMode === 'endless' ? 'endless' : 'campaign',
     guardTarget: Number.isFinite(n) ? Math.max(50, Math.min(5000, Math.round(n))) : 200,
     guardSpeed: Number.isFinite(speed) ? Math.max(0.5, Math.min(10, Math.round(speed * 10) / 10)) : 1.5,
+    guardHealth: normalizeGuardHealth(o.guardHealth),
     quality: Object.hasOwn(QUALITY, o.quality) ? o.quality : 'standard',
     comfort: o.comfort !== false,
     trail: typeof o.trail === 'boolean' ? o.trail : o.comfort === false,
@@ -33,6 +38,10 @@ function currentRun(){ return state.runConfig || gameOptions; }
 function attackProfile(config, weapon){
   if (config.combatMode !== 'challenge') return { range: 100, halfArc: Math.PI };
   return weapon === 'chair' ? { range: 4, halfArc: Math.PI / 3 } : { range: 2.4, halfArc: Math.PI / 4 };
+}
+function meleeDamage(config, weapon){
+  if (config.combatMode === 'challenge') return weapon === 'chair' ? 70 : 35;
+  return weapon === 'chair' ? 150 : 100;
 }
 function targetInAttackRange(pos, yaw, target, profile){
   const x = target.x - pos.x, z = target.z - pos.z, d = Math.hypot(x, z);

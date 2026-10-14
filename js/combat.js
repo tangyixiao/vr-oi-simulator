@@ -27,7 +27,8 @@ function downTeacher(){
   hitFeedback(1);
   beginBattle('classroom', currentRun().guardTarget);
   captureCheckpoint();
-  toast('监考老师跑了！保安正在赶来。2 手枪 · 3 步枪 · R 换弹／拾椅子', 3200);
+  const ammoHint = currentRun().combatMode === 'challenge' ? 'R 换弹／拾椅子' : '枪械无限弹药 · R 拾椅子';
+  toast(`监考老师跑了！保安正在赶来。2 手枪 · 3 步枪 · 4 加特林 · ${ammoHint}`, 3200);
 }
 
 /* ---------- 攻击范围：100 米、360°，无需对准 ---------- */
@@ -45,11 +46,76 @@ function guardsInPunchRange(){
   return out;
 }
 
+/* Each guard owns HP; the live setting changes maximum HP without healing wounds. */
+let guardHealthAssets = null;
+function createGuardHealthBar(g){
+  if (g.healthBar || typeof THREE === 'undefined' || !g.group.add) return;
+  if (!guardHealthAssets){
+    guardHealthAssets = {
+      back: new THREE.PlaneGeometry(0.86, 0.1), fill: new THREE.PlaneGeometry(0.8, 0.06),
+      backMaterial: new THREE.MeshBasicMaterial({ color: 0x142130, side: THREE.DoubleSide, depthWrite: false }),
+      fillMaterial: new THREE.MeshBasicMaterial({ color: 0xf3cb69, side: THREE.DoubleSide, depthWrite: false })
+    };
+    if (typeof geoCache !== 'undefined'){
+      geoCache.set('guard-health-back', guardHealthAssets.back);
+      geoCache.set('guard-health-fill', guardHealthAssets.fill);
+    }
+    if (typeof matCache !== 'undefined'){
+      matCache.set('guard-health-back', guardHealthAssets.backMaterial);
+      matCache.set('guard-health-fill', guardHealthAssets.fillMaterial);
+    }
+  }
+  const bar = new THREE.Group(); bar.position.y = 2.15;
+  bar.userData.shotIgnore = true;
+  const back = new THREE.Mesh(guardHealthAssets.back, guardHealthAssets.backMaterial);
+  const fill = new THREE.Mesh(guardHealthAssets.fill, guardHealthAssets.fillMaterial);
+  back.userData.sharedMaterial = fill.userData.sharedMaterial = true;
+  fill.position.z = 0.002;
+  bar.add(back, fill); g.group.add(bar);
+  g.healthBar = bar; g.healthFill = fill;
+}
+function updateGuardHealthBar(g){
+  if (!g.healthBar) return;
+  const fraction = g.userData.hp / g.userData.maxHp;
+  g.healthBar.visible = g.userData.alive && fraction > 0 && fraction < 1;
+  g.healthFill.scale.x = fraction;
+  g.healthFill.position.x = (fraction - 1) * 0.4;
+  if (typeof camera !== 'undefined' && camera.position){
+    g.healthBar.rotation.y = Math.atan2(camera.position.x - g.group.position.x,
+      camera.position.z - g.group.position.z) - g.group.rotation.y;
+  }
+}
+function initGuardHealth(g){
+  const maximum = normalizeGuardHealth(gameOptions.guardHealth);
+  g.userData.maxHp = maximum; g.userData.hp = maximum;
+  createGuardHealthBar(g); updateGuardHealthBar(g);
+}
+function syncGuardHealth(g){
+  if (!g || !g.userData.alive) return;
+  const hp = g.userData.hp, oldMax = g.userData.maxHp;
+  if (!Number.isFinite(hp) || !Number.isFinite(oldMax) || oldMax <= 0){ initGuardHealth(g); return; }
+  const maximum = normalizeGuardHealth(gameOptions.guardHealth);
+  if (maximum !== oldMax){
+    g.userData.hp = Math.max(0, Math.min(1, hp / oldMax)) * maximum;
+    g.userData.maxHp = maximum;
+  }
+  createGuardHealthBar(g); updateGuardHealthBar(g);
+}
+/* Returns true only when this hit actually downs a living guard. */
+function damageGuard(g, damage){
+  if (!g || !g.userData.alive || !Number.isFinite(damage) || damage <= 0) return false;
+  syncGuardHealth(g);
+  g.userData.hp = Math.max(0, g.userData.hp - damage);
+  updateGuardHealthBar(g);
+  if (g.userData.hp > 0) return false;
+  return killGuard(g);
+}
+
 /* 用引用而非索引：避免数组被 prune 后索引错位 */
-/* 击倒单个保安（扫拳的单元）。返回 false 表示本回合已结束（隐藏结局） */
 function killGuard(g){
-  if (!g || !g.userData.alive) return true;
-  g.userData.alive = false;
+  if (!g || !g.userData.alive) return false;
+  g.userData.alive = false; g.userData.hp = 0;
+  if (g.healthBar){ g.healthBar.visible = false; g.group.remove(g.healthBar); }
   for (const light of guardLights) if (light.parent === g.group) { scene.add(light); light.intensity = 0; }
   /* 先炸散再移除组：部件已摘到场景里，带物理飞走 */
   spawnBodyDebris(g.group, { speed: 3.9 });
@@ -87,18 +153,22 @@ function hitFeedback(n){
   hitStop = gameOptions.comfort ? 0.025 : 0.09 + Math.min(0.06, n * 0.02);
 }
 
-/* 一拳扫倒拳范围内所有保安（不是只有一个） */
+/* 一拳伤害拳范围内所有保安，击倒统计只计入血量归零者。 */
 function punchGuardsArc(){
   if (!canFight()) return;
   const victims = guardsInPunchRange();
   if (!victims.length){ animateWeaponSwing(); return; }
-  for (const g of victims) killGuard(g);
-  recordPunch(victims.length);
+  let kills = 0;
+  const damage = meleeDamage(currentRun(), state.weapon);
+  for (const g of victims) if (damageGuard(g, damage)) kills++;
+  if (kills) recordPunch(kills);
   hitFeedback(victims.length);
-  toast(`一击放倒 ${victims.length} 名保安！`, 1200);
-  checkGuardKillMilestones(state.guardKills);
-  maybeGuardWarning();
-  finishBattleIfReady();
+  toast(kills ? `一击放倒 ${kills} 名保安！` : `命中 ${victims.length} 名保安 · 每名 −${damage} 血量`, 1200);
+  if (kills){
+    checkGuardKillMilestones(state.guardKills);
+    maybeGuardWarning();
+    finishBattleIfReady();
+  }
 }
 
 /* =========================================================
@@ -117,6 +187,7 @@ function updateGuards(realDt, t){
   for (let i = 0; i < securityGuards.length; i++){
     const g = securityGuards[i];
     if (!g.userData.alive) continue;
+    syncGuardHealth(g);
 
     const pos = g.group.position;
     const dx = state.pos.x - pos.x;
@@ -131,12 +202,10 @@ function updateGuards(realDt, t){
       if (!handleGuardCatch(g)) return;
     }
 
+    const previousX = pos.x, previousZ = pos.z;
     moveGuard(g, i, realDt);
-
-    const v = Math.sin(t * 3.5 + g.phase) * 0.25;
-    g.armL.rotation.x = -0.25 + v;
-    g.armR.rotation.x = -0.25 - v;
-    g.head.rotation.y = Math.sin(t * 2 + g.phase) * 0.25;
+    updateGuardGait(g, Math.hypot(pos.x - previousX, pos.z - previousZ), realDt, t);
+    updateGuardHealthBar(g);
 
     if (g.warnLight){
       const blink = gameOptions.blink ? 0.5 + 0.5 * Math.sin(t * 6 + g.phase) : 0.35;

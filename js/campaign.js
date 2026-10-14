@@ -23,6 +23,7 @@ function disposeLevelObject(group){
 function clearLevel(){
   stopBattle();
   resetGuardNavigation();
+  clearTerrain();
   resetFirearms();
   dismissDialogs();
   endSlowMo();
@@ -47,12 +48,13 @@ function clearLevel(){
   postPrimed = false;
 }
 function resetPlayer(x, z){
-  state.pos.set(x, 1.65, z);
+  jumpY = groundHeight(x, z); velY = 0; onGround = true;
+  state.pos.set(x, 1.65 + jumpY, z);
   state.yaw = 0; state.pitch = 0; yawTarget = 0; pitchTarget = 0;
   recoilPitch = 0; recoilYaw = 0;
   camera.position.copy(state.pos);
   camera.rotation.set(0, 0, 0);
-  _jumpSafe.set(x, 0, z);
+  _jumpSafe.set(x, jumpY, z);
 }
 function campusSign(text, x, y, z, color){
   const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
@@ -84,9 +86,10 @@ function buildCampus(index){
       box(0.04, 1.6, 2.4, 0xb7dcdf, -w/2 + 0.1, 1.9, z, scene, { emissive: 0x253d42 });
       box(0.16, 0.08, 1, 0xe9e4d8, w/2 - 0.4, 2.7, z, scene, { emissive: 0x454136 });
     }
-    for (const z of [4, -5]){
-      box(1.2, 0.8, 0.8, 0x445d58, 2.4, 0.4, z, scene);
-      addObstacle(2.4, z, 0.6, 0.4);
+    const coverX = index === 0 ? 2.4 : -2.4;
+    for (const z of index === 0 ? [4, 0.5] : [-4.2, -8.5]){
+      box(1.2, 0.95, 0.8, 0x445d58, coverX, 0.475, z, scene);
+      addObstacle(coverX, z, 0.6, 0.4);
     }
   } else {
     for (const x of [-8, 8]) for (const z of [-5, 4]){
@@ -96,6 +99,7 @@ function buildCampus(index){
       leaf.position.set(x, 3, z); scene.add(leaf); addObstacle(x, z, 0.7, 0.7);
     }
   }
+  buildRaisedTerrain(index);
   campusExit = { x: 0, z: yard ? -8.6 : index === 0 ? -2 : -10.2 };
   campusGate = new THREE.Group(); campusGate.position.set(0, 0, campusExit.z);
   box(yard ? 5 : 7.2, 1.6, 0.2, 0x9a7352, 0, 0.8, 0, campusGate);
@@ -210,7 +214,9 @@ function renderBattleHud(){
   const p = attackProfile(currentRun(), state.weapon);
   const remaining = Number.isFinite(battle.target) ? `${battle.kills} / ${battle.target}` : `${state.guardKills} · 无尽`;
   const weapon = isFirearm(state.weapon)
-    ? `${GUNS[state.weapon].name} · ${gunMagazine(state.weapon)} / ${GUNS[state.weapon].capacity} · ${gunReload > 0 ? '换弹 ' + gunReload.toFixed(1) + ' 秒' : 'R 换弹'}`
+    ? (gunHasInfiniteAmmo(state.weapon)
+      ? `${GUNS[state.weapon].name} · ∞ · 无限弹药 · 无需换弹`
+      : `${GUNS[state.weapon].name} · ${gunMagazine(state.weapon)} / ${GUNS[state.weapon].capacity} · ${gunReload > 0 ? '换弹 ' + gunReload.toFixed(1) + ' 秒' : 'R 换弹'}`)
     : `${state.weapon === 'chair' ? '椅子' : '拳头'} · ${p.range} 米 · 无冷却`;
-  el.textContent = `${CHAPTER_NAMES[state.chapter] || '考场'} · ${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\n${weapon}\n1 拳头 · 2 手枪 · 3 步枪\n保安基础移速 ${gameOptions.guardSpeed.toFixed(1)} 米/秒\n${state.teacherDown ? '本段击倒 ' + remaining : '左键打倒老师，开启战斗'} · 单次最高 ${state.bestPunch}`;
+  el.textContent = `${CHAPTER_NAMES[state.chapter] || '考场'} · ${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\n${weapon}\n1 拳头 · 2 手枪 · 3 步枪 · 4 加特林\n保安基础移速 ${gameOptions.guardSpeed.toFixed(1)} 米/秒 · 血量 ${gameOptions.guardHealth}\n${state.teacherDown ? '本段击倒 ' + remaining : '左键打倒老师，开启战斗'} · 单次最高 ${state.bestPunch}`;
 }

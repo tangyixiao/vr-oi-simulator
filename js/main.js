@@ -77,8 +77,8 @@ function bindEvents(){
       e.preventDefault();
       return;
     }
-    if (!e.repeat && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)){
-      selectWeapon({ Digit1: 'fist', Digit2: 'pistol', Digit3: 'rifle' }[e.code]);
+    if (!e.repeat && ['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)){
+      selectWeapon({ Digit1: 'fist', Digit2: 'pistol', Digit3: 'rifle', Digit4: 'gatling' }[e.code]);
       e.preventDefault();
     }
 
@@ -278,7 +278,7 @@ function bindEvents(){
     const p = state.problems.find(x => x.id === state.curProb);
     if (confirm('确定要重置本题代码吗？')){
       codeArea.value = p.starter;
-      state.code[state.curProb] = p.starter;
+      saveCode();
       scheduleHighlight();
     }
   };
@@ -311,7 +311,8 @@ function bindEvents(){
     state.startTime = performance.now();
     yawTarget = state.yaw; pitchTarget = state.pitch;
     clock.getDelta();
-    toast('WASD 移动 · 1 拳头 · 2 手枪 · 3 步枪 · R 换弹／拾椅子 · E 交互', 4000);
+    const ammoHint = currentRun().combatMode === 'challenge' ? 'R 换弹／拾椅子' : '枪械无限弹药 · R 拾椅子';
+    toast(`WASD 移动 · 1 拳头 · 2 手枪 · 3 步枪 · 4 加特林 · ${ammoHint} · E 交互`, 4000);
     /* 点击按钮是用户手势，此时申请指针锁定成功率最高 */
     requestLock();
     /* 尝试恢复存档 */
@@ -395,6 +396,7 @@ function animate(){
 
   if (state.view === 'corridor') updateCorridor(realDt);
   if (state.view === 'bathroom') updateBathroom(realDt);
+  if (state.view === 'npcComputer') updateNPCComputer();
   /* 终局：开门动画与白光投射的推进 */
   if (state.doorOpen) updateDoorLight(realDt);
 
@@ -572,6 +574,7 @@ function init(){
   initHp();
   initUpgradeUI();
   bindEvents();
+  initNPCComputerUI();
   initPaperEvents();
   renderHudProbs();
 

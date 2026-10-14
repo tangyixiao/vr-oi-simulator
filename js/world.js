@@ -219,7 +219,10 @@ function buildRoom(){
   addObstacle(-6.6, 5.6, 0.25, 0.25);
 }
 
-function drawDeskScreen(cx, w, h){
+function drawDeskScreen(cx, w, h, npcId = -1, npcName = ''){
+  const probs = (state.problems && state.problems.length) ? state.problems : [];
+  const work = npcId >= 0 && typeof getNpcWorkSnapshot === 'function'
+    ? getNpcWorkSnapshot(npcName, npcId, probs, state.elapsed) : null;
   cx.fillStyle = '#0b0f16'; cx.fillRect(0, 0, w, h);
   cx.fillStyle = '#131b26'; cx.fillRect(0, 0, w, 34);
   cx.fillStyle = '#5b8cff'; cx.fillRect(0, 32, w, 2);
@@ -229,8 +232,15 @@ function drawDeskScreen(cx, w, h){
   /* 题目列表 */
   cx.fillStyle = '#1a2330'; cx.fillRect(12, 48, w - 24, 100);
   cx.font = '15px Consolas, monospace';
-  const probs = (state.problems && state.problems.length) ? state.problems : [];
-  probs.slice(0, 4).forEach((p, i) => {
+  if (work){
+    cx.fillStyle = '#d6e3f3';
+    cx.fillText(`${npcName}  ·  ${work.problemId} ${work.problemName}`.slice(0, 35), 26, 78);
+    cx.fillStyle = work.accepted ? '#4fd1c5' : '#ffcc57';
+    cx.fillText(`${work.progress}%  ·  ${work.accepted ? '[已 AC · 模拟]' : '[编写中]'}`, 26, 106);
+    cx.fillStyle = '#2c3a4d'; cx.fillRect(26, 126, w - 52, 8);
+    cx.fillStyle = work.accepted ? '#4fd1c5' : '#ffcc57';
+    cx.fillRect(26, 126, (w - 52) * work.progress / 100, 8);
+  } else probs.slice(0, 4).forEach((p, i) => {
     const sc = state.score[p.id] || 0;
     const maxScore = p.max || 100;
     const label = (p.id + '  ' + p.name).slice(0, 24);
@@ -248,7 +258,7 @@ function drawDeskScreen(cx, w, h){
   /* 代码预览：当前第一题的 starter 前 9 行 */
   cx.font = '14px Consolas, monospace';
   const first = probs[0];
-  const lines = (first && first.starter)
+  const lines = work ? work.code.split('\n').slice(0, 9) : (first && first.starter)
     ? first.starter.split('\n').slice(0, 9)
     : ['#include <bits/stdc++.h>', 'using namespace std;', '', 'int main() {', '    // ...', '    return 0;', '}'];
   lines.forEach((l, i) => {
@@ -263,7 +273,7 @@ function drawDeskScreen(cx, w, h){
 
 function updateAllDeskScreens(){
   for (const s of deskScreens){
-    drawDeskScreen(s.ctx, 640, 384);
+    drawDeskScreen(s.ctx, 640, 384, s.npcId, s.npcName);
     s.tex.needsUpdate = true;
   }
 }
@@ -278,7 +288,7 @@ function scheduleDeskScreensUpdate(){
   }, 80);
 }
 
-function buildDesk(x, z, withMonitor){
+function buildDesk(x, z, withMonitor, npcId = -1, npcName = ''){
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   scene.add(g);
@@ -302,7 +312,7 @@ function buildDesk(x, z, withMonitor){
     const sc = document.createElement('canvas');
     sc.width = 640; sc.height = 384;
     const sx = sc.getContext('2d');
-    drawDeskScreen(sx, 640, 384);
+    drawDeskScreen(sx, 640, 384, npcId, npcName);
     const tex = new THREE.CanvasTexture(sc);
     tex.anisotropy = 4;
     const face = new THREE.Mesh(
@@ -313,7 +323,7 @@ function buildDesk(x, z, withMonitor){
     g.add(face);
 
     /* 记录以便后续刷新（切题 / 得分 / 读档时重新绘制） */
-    deskScreens.push({ ctx: sx, tex: tex });
+    deskScreens.push({ ctx: sx, tex: tex, npcId, npcName });
 
     /* 原先每台显示器一盏 PointLight，累计 6 盏，会把光照 shader 拖慢；
        这里换成一块微弱自发光平面，零光照开销。 */
@@ -383,7 +393,9 @@ function buildDesk(x, z, withMonitor){
     pen.position.set(-0.62, 0.782, 0.20);
     g.add(pen);
 
-    face.userData.interact = { label: '使用电脑', action: () => openCode() };
+    face.userData.interact = npcId >= 0
+      ? { label: `使用 ${npcName} 的电脑`, action: () => useNPCComputer(npcId) }
+      : { label: '使用电脑', action: () => openCode() };
     interactables.push(face);
   }
 
@@ -446,7 +458,7 @@ function buildPerson(x, z, shirtColor, rotY, startPose){
 
 function buildSecurityGuard(x, z){
   const g = new THREE.Group();
-  g.position.set(x, 0, z);
+  g.position.set(x, typeof groundHeight === 'function' ? groundHeight(x, z) : 0, z);
   scene.add(g);
 
   const skin = 0xd0a070;
@@ -454,10 +466,16 @@ function buildSecurityGuard(x, z){
   const pants = 0x141e30;
 
   /* ---------- 腿 ---------- */
-  box(0.18, 0.17, 0.46, pants, -0.115, 0.52, 0.22, g);
-  box(0.18, 0.17, 0.46, pants,  0.115, 0.52, 0.22, g);
-  box(0.17, 0.46, 0.17, pants, -0.115, 0.24, 0.42, g);
-  box(0.17, 0.46, 0.17, pants,  0.115, 0.24, 0.42, g);
+  const makeLeg = x => {
+    const leg = new THREE.Group();
+    leg.position.set(x, 0.81, 0);
+    box(0.18, 0.36, 0.18, pants, 0, -0.18, 0, leg);
+    box(0.17, 0.36, 0.17, pants, 0, -0.54, 0, leg);
+    box(0.20, 0.09, 0.29, 0x080c14, 0, -0.765, 0.045, leg);
+    g.add(leg);
+    return leg;
+  };
+  const legL = makeLeg(-0.13), legR = makeLeg(0.13);
 
   /* ---------- 制服 ---------- */
   box(0.50, 0.62, 0.29, uniform, 0, 1.10, 0.01, g);
@@ -466,22 +484,16 @@ function buildSecurityGuard(x, z){
   box(0.52, 0.045, 0.31, 0x0a1525, 0, 1.40, 0.01, g);
   box(0.52, 0.05, 0.31, 0x080808, 0, 0.80, 0.01, g);
 
-  /* ---------- 手臂：独立几何 + 独立材质 ---------- */
-  const armL = new THREE.Mesh(
-    getBoxGeo(0.14, 0.55, 0.14),
-    mat(uniform)
-  );
-  armL.position.set(-0.33, 1.12, 0.10);
-  armL.rotation.x = -0.2;
-  g.add(armL);
-
-  const armR = new THREE.Mesh(
-    getBoxGeo(0.14, 0.55, 0.14),
-    mat(uniform)
-  );
-  armR.position.set(0.33, 1.12, 0.10);
-  armR.rotation.x = -0.2;
-  g.add(armR);
+  /* 肩部轴心让手臂和腿反向摆动，静止时自然垂下。 */
+  const makeArm = x => {
+    const arm = new THREE.Group();
+    arm.position.set(x, 1.39, 0.01);
+    box(0.14, 0.50, 0.14, uniform, 0, -0.25, 0, arm);
+    box(0.13, 0.10, 0.13, skin, 0, -0.55, 0, arm);
+    g.add(arm);
+    return arm;
+  };
+  const armL = makeArm(-0.33), armR = makeArm(0.33);
 
   /* ---------- 头 ---------- */
   const head = new THREE.Mesh(
@@ -538,10 +550,30 @@ function buildSecurityGuard(x, z){
   addContactShadow(g, 0.58);
 
   return {
-    group: g, armL, armR, head, warnLight,
+    group: g, armL, armR, legL, legR, head, warnLight,
     glow,
+    gaitPhase: 0, gaitAmount: 0,
     phase: Math.random() * Math.PI * 2
   };
+}
+
+/* 距离而非世界时间推进步态：撞墙或停下时双脚回到站姿。 */
+function updateGuardGait(g, distance, dt, t){
+  const travel = Number.isFinite(distance) ? Math.max(0, distance) : 0;
+  const elapsed = Math.max(0, dt || 0);
+  const speed = elapsed > 0 ? travel / elapsed : 0;
+  g.gaitPhase = (g.gaitPhase || 0) + travel * 7;
+  const target = travel > 0.0001 ? Math.min(0.72, 0.32 + speed * 0.055) : 0;
+  const blend = 1 - Math.exp(-elapsed * 14);
+  g.gaitAmount = (g.gaitAmount || 0) + (target - (g.gaitAmount || 0)) * blend;
+  const swing = Math.sin(g.gaitPhase) * g.gaitAmount;
+  if (g.legL) g.legL.rotation.x = swing;
+  if (g.legR) g.legR.rotation.x = -swing;
+  g.armL.rotation.x = -swing * 0.8;
+  g.armR.rotation.x = swing * 0.8;
+  g.head.rotation.y = Math.sin((t || 0) * 2 + g.phase) * 0.12;
+  const pos = g.group.position;
+  pos.y = typeof groundHeight === 'function' ? groundHeight(pos.x, pos.z) : 0;
 }
 
 /* ---------- 保安系统 ---------- */
@@ -676,6 +708,7 @@ function spawnTwoGuards(){
     g.userData = { alive: true, navSlot: battle.spawned,
       speedFactor: (1 + Math.min(0.25, state.guardKills * 0.005)) *
         (battle.stage.startsWith('campus') ? 1.25 : 1) };
+    if (typeof initGuardHealth === 'function') initGuardHealth(g);
     securityGuards.push(g);
     battle.spawned++;
     state.guardsSpawned++;
@@ -683,14 +716,16 @@ function spawnTwoGuards(){
 }
 function findGuardSpawn(){
   const hw = worldBounds.w / 2 - 0.6, hd = worldBounds.d / 2 - 0.6;
+  const clear = (x, z) => !collides(x, z, 0.32) &&
+    (typeof terrainSegmentClear !== 'function' || terrainSegmentClear({ x, z }, { x, z }, 0.32));
   for (let tries = 0; tries < 64; tries++){
     const minZ = worldBounds.minZ ?? -hd, maxZ = worldBounds.maxZ ?? hd;
     const x = (Math.random() * 2 - 1) * hw, z = minZ + Math.random() * (maxZ - minZ);
-    if (!collides(x, z, 0.32) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
+    if (clear(x, z) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
   }
   // A deterministic fallback avoids losing quota when random samples miss narrow passages.
   for (let x = -hw; x <= hw; x += 1.5) for (let z = worldBounds.minZ ?? -hd; z <= (worldBounds.maxZ ?? hd); z += 1.5){
-    if (!collides(x, z, 0.32) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
+    if (clear(x, z) && Math.hypot(x - state.pos.x, z - state.pos.z) >= 3.6) return { x, z };
   }
   return null;
 }
@@ -709,7 +744,7 @@ function buildWorld(){
   ];
   const NPC_NAMES = ['小明', '小红', '小刚', '小强', '小丽'];
   seats.forEach((s, i) => {
-      buildDesk(s.x, s.z, true);
+      buildDesk(s.x, s.z, true, i, NPC_NAMES[i]);
       const p = buildPerson(s.x, s.z + 0.92, s.color, Math.PI);
       p.userData = {
         id: i, name: NPC_NAMES[i],

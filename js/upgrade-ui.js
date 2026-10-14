@@ -6,7 +6,9 @@ function graphicsHtml(suffix){
     <div class="effect-checks">${[['trail','拖影'],['shake','镜头抖动'],['blink','警灯闪烁'],['fragments','击倒碎块']].map(([key,label]) => `<label><input type="checkbox" id="${key}${suffix}"> ${label}</label>`).join('')}</div>
     <div class="set-title">保安追击</div>
     <div class="setting-row"><label for="guardSpeed${suffix}">基础移速</label><input type="range" id="guardSpeed${suffix}" min="0.5" max="10" step="0.1"><span id="guardSpeedValue${suffix}" class="val"></span></div>
-    <div class="setting-help">0.5～10 米/秒，随时调整、立即生效。远距离追击和校园关卡会加速。</div>`;
+    <div class="setting-help">0.5～10 米/秒，随时调整、立即生效。远距离追击和校园关卡会加速。</div>
+    <div class="setting-row"><label for="guardHealth${suffix}">每名保安血量</label><input type="range" id="guardHealth${suffix}" min="10" max="2000" step="10"><span id="guardHealthValue${suffix}" class="val"></span></div>
+    <div class="setting-help">10～2000，每名保安独立扣血。随时调整，已受伤保安保留剩余血量比例。</div>`;
 }
 function initUpgradeUI(){
   $('graphicsStart').innerHTML = graphicsHtml('Start');
@@ -14,6 +16,11 @@ function initUpgradeUI(){
   for (const suffix of ['Start','Pause']){
     $(`guardSpeed${suffix}`).addEventListener('input', e => {
       gameOptions.guardSpeed = normalizeGameOptions({ guardSpeed: e.target.value }).guardSpeed;
+      saveGameOptions(); syncUpgradeUI();
+    });
+    $(`guardHealth${suffix}`).addEventListener('input', e => {
+      gameOptions.guardHealth = normalizeGuardHealth(e.target.value);
+      for (const g of securityGuards) syncGuardHealth(g);
       saveGameOptions(); syncUpgradeUI();
     });
     $(`quality${suffix}`).addEventListener('change', e => {
@@ -57,11 +64,13 @@ function syncUpgradeUI(){
   $('resumeSave').disabled = gameOptions.runMode === 'endless';
   for (const btn of document.querySelectorAll('[data-guard-target]')) btn.disabled = gameOptions.runMode === 'endless' || state.started;
   $('modeDescription').textContent = gameOptions.combatMode === 'power'
-    ? '爽快近战：100 米 · 360° · 无冷却，一拳横扫全场。枪械需准星瞄准，受障碍遮挡。'
-    : '挑战近战：拳头 2.4 米 / 90°，椅子 4 米 / 120°，无冷却。枪械需准星瞄准，受障碍遮挡。';
+    ? '爽快近战：100 米 · 360° · 无冷却，拳头伤害 100，椅子 150。手枪 60 / 步枪 35 / 加特林 18；枪械无限弹药，无需换弹，需瞄准并受遮挡。'
+    : '挑战近战：拳头 2.4 米 / 90° / 伤害 35，椅子 4 米 / 120° / 伤害 70，无冷却。枪械需瞄准并受遮挡，有限弹匣、R 换弹。';
   for (const suffix of ['Start','Pause']){
     $(`guardSpeed${suffix}`).value = gameOptions.guardSpeed;
     $(`guardSpeedValue${suffix}`).textContent = `${gameOptions.guardSpeed.toFixed(1)} 米/秒`;
+    $(`guardHealth${suffix}`).value = gameOptions.guardHealth;
+    $(`guardHealthValue${suffix}`).textContent = `${gameOptions.guardHealth} HP`;
     $(`quality${suffix}`).value = gameOptions.quality;
     $(`comfort${suffix}`).value = gameOptions.comfort ? 'comfort' : 'strong';
     for (const key of ['trail','shake','blink','fragments']) $(`${key}${suffix}`).checked = key === 'shake' ? shakeEnabled : gameOptions[key];

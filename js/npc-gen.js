@@ -1,9 +1,8 @@
 'use strict';
 /* =========================================================
    NPC 代码生成器
-   输入：NPC 名字 + 题目 id
-   输出：一段看起来像那么回事的 C++ 代码
-   同一组合总是生成同一份代码（确定性）
+   模拟选手代码与确定性的答题时间表。
+   代码只用于游戏内玩法，并非题库中真实题目的参考解答。
    ========================================================= */
 
 const NPC_STYLES = {
@@ -79,6 +78,7 @@ function genNpcCode(npcName, probId){
   const inner = ind + ind;
 
   const lines = [];
+  lines.push('// 游戏内选手模拟代码，非本题真实参考解答');
   lines.push(style.header(probId));
   lines.push('#include <bits/stdc++.h>');
   lines.push('using namespace std;');
@@ -90,14 +90,14 @@ function genNpcCode(npcName, probId){
 
   /* 1. 声明区 */
   lines.push(ind + 'int n;');
-  if (rng() < 0.75) lines.push(ind + 'long long ans = 0;');
-  if (rng() < 0.55) lines.push(ind + 'long long sum = 0;');
-  if (rng() < 0.45) lines.push(ind + 'vector<long long> a;');
+  lines.push(ind + 'long long ans = 0;');
+  lines.push(ind + 'long long sum = 0;');
+  lines.push(ind + 'vector<long long> a;');
 
   /* 2. 输入区 */
   lines.push(ind + 'cin >> n;');
-  if (rng() < 0.6) lines.push(ind + 'a.resize(n);');
-  if (rng() < 0.75) lines.push(ind + 'for (int i = 0; i < n; i++) cin >> a[i];');
+  lines.push(ind + 'a.resize(n);');
+  lines.push(ind + 'for (int i = 0; i < n; i++) cin >> a[i];');
 
   /* 3. 逻辑区 */
   if (style.inline.length && rng() < 0.6){
@@ -127,4 +127,51 @@ function genNpcCode(npcName, probId){
   lines.push('}');
 
   return lines.join('\n');
+}
+
+/* 每位选手的题序、起步时间和速度不同；完成后保留代码直到下一题。
+   输入只包含本局题目和比赛时间，因此重新读档会恢复同一时间表。 */
+function getNpcWorkSnapshot(npcName, studentId, problems, elapsed){
+  if (!Array.isArray(problems) || !problems.length ||
+      !Number.isInteger(studentId) ||
+      Object.keys(NPC_STYLES)[studentId] !== npcName) return null;
+  const capturedAt = Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0;
+  const direction = studentId % 2 === 0 ? 1 : -1;
+  let startedAt = studentId * 20 + hashStr(npcName + '|start') % 20;
+  let problem, completedAt, nextAt;
+  for (let phase = 0; phase < problems.length; phase++){
+    const index = ((studentId + direction * phase) % problems.length + problems.length) % problems.length;
+    problem = problems[index];
+    const seed = hashStr(npcName + '|' + studentId + '|' + problem.id);
+    completedAt = startedAt + 180 + studentId * 65 + seed % 50;
+    nextAt = startedAt + 600 + studentId * 55 + seed % 120;
+    if (capturedAt < nextAt || phase === problems.length - 1) break;
+    startedAt = nextAt;
+  }
+  const accepted = capturedAt >= completedAt;
+  const progress = accepted ? 100 : Math.max(0,
+    Math.min(99, Math.floor((capturedAt - startedAt) / (completedAt - startedAt) * 100)));
+  const completeCode = genNpcCode(npcName, problem.id);
+  let code = completeCode;
+  if (!accepted){
+    const lines = completeCode.split('\n');
+    const visibleLines = Math.min(lines.length - 2, 6 + Math.floor((lines.length - 8) * progress / 100));
+    code = lines.slice(0, visibleLines).join('\n') + '\n// 正在编写，尚未完成';
+  }
+  return {
+    studentId, studentName: npcName, problemId: problem.id, problemName: problem.name,
+    progress, accepted, code, startedAt, completedAt, nextAt, capturedAt
+  };
+}
+
+/* 存档与评测都重新核验来源、完成时刻、题号及完整文本。
+   代码里的注释不会被当作已抄取的凭据。 */
+function isValidCopiedNpcCodeProof(proof, code, problemId, problems, elapsed){
+  if (!proof || proof.version !== 1 || typeof code !== 'string' ||
+      proof.problemId !== problemId || proof.code !== code ||
+      !Number.isFinite(elapsed) || !Number.isFinite(proof.capturedAt) ||
+      !Number.isFinite(proof.copiedAt) || proof.capturedAt < 0 ||
+      proof.capturedAt > proof.copiedAt || proof.copiedAt > elapsed) return false;
+  const snapshot = getNpcWorkSnapshot(proof.studentName, proof.studentId, problems, proof.capturedAt);
+  return !!snapshot && snapshot.accepted && snapshot.problemId === problemId && snapshot.code === code;
 }

@@ -98,7 +98,8 @@ function disposeOwnedMaterials(group){
   const shared = new Set(matCache.values());
   const owned = new Set();
   group.traverse(o => {
-    if (o.material && !shared.has(o.material)) owned.add(o.material);
+    if (!o.material || o.userData.sharedMaterial) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (!shared.has(m)) owned.add(m);
   });
   for (const m of owned) m.dispose();
 }

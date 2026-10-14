@@ -10,7 +10,8 @@ function updateInteract(){
 
   // Attack selection is independent of E/R interactions.
   if (isFirearm(state.weapon))
-    actionSpace = { fn: fireGun, label: gunReload > 0 ? '换弹中…' : gunMagazine(state.weapon) > 0 ? '准星瞄准射击' : '弹匣已空 · R 换弹' };
+    actionSpace = { fn: fireGun, label: gunHasInfiniteAmmo() ? '准星瞄准射击 · 无限弹药'
+      : gunReload > 0 ? '换弹中…' : gunMagazine(state.weapon) > 0 ? '准星瞄准射击' : '弹匣已空 · R 换弹' };
   else if (securityGuards.some(g => g.userData.alive && inPunchRange(g.group.position.x, g.group.position.z)))
     actionSpace = { fn: punchGuardsArc, label: '横扫保安' };
   else if (teacher && !teacher.userData.leaving && inPunchRange(teacher.group.position.x, teacher.group.position.z))
@@ -53,7 +54,9 @@ function updateInteract(){
       }
     }
   }
-  const chairHint = isFirearm(state.weapon) ? '[ R ] 换弹 · [ 1 ] 近战' : heldChair ?
+  const chairHint = isFirearm(state.weapon)
+    ? gunHasInfiniteAmmo() ? '无限弹药 · 无需换弹 · [ 1 ] 近战' : '[ R ] 换弹 · [ 1 ] 近战'
+    : heldChair ?
     (state.weapon === 'chair' ? '[ R ] 放下椅子' : '[ R ] 重新拿起椅子') : nearbyChair() ? '[ R ] 拾取空椅子' : '';
   if (chairHint) hint += (hint ? ' · ' : '') + chairHint;
   if (!pointerLocked && !hint) hint = '点击画面捕获鼠标 · Esc 打开设置';

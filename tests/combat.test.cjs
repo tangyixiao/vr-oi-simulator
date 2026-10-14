@@ -194,3 +194,31 @@ test('a real fifty-guard chair hit unlocks both achievements and counts once', (
   assert.equal(ctx.state.achievements.has('one_punch'), true);
   assert.equal(ctx.state.achievements.has('chair50'), true);
 });
+test('challenge melee wounds independently and records achievements only for actual kills', () => {
+  const ctx = game(); ctx.state.runConfig = { combatMode: 'challenge' };
+  const a = guard(0, -1), b = guard(0, -2); ctx.securityGuards.push(a, b);
+  ctx.doInteract('space');
+  assert.equal(a.userData.hp, 65); assert.equal(b.userData.hp, 65);
+  assert.equal(ctx.state.guardKills, 0); assert.equal(ctx.state.bestPunch, 0);
+  ctx.doInteract('space'); assert.equal(a.userData.hp, 30);
+  ctx.doInteract('space');
+  assert.equal(ctx.state.guardKills, 2); assert.equal(ctx.state.bestPunch, 2);
+});
+test('raising guard health makes power fist and chair consume different numbers of attacks', () => {
+  for (const [weapon, firstHp, attacks] of [['fist', 200, 3], ['chair', 150, 2]]) {
+    const ctx = game(); vm.runInContext('gameOptions.guardHealth = 300', ctx);
+    ctx.state.weapon = weapon; const g = guard(0, -1); ctx.securityGuards.push(g);
+    ctx.doInteract('space'); assert.equal(g.userData.hp, firstHp);
+    assert.equal(ctx.state.bestPunch, 0); assert.equal(ctx.state.chairKills, 0);
+    for (let i = 1; i < attacks; i++) ctx.doInteract('space');
+    assert.equal(ctx.state.guardKills, 1); assert.equal(ctx.state.bestPunch, 1);
+    assert.equal(ctx.state.chairKills, weapon === 'chair' ? 1 : 0);
+  }
+});
+test('challenge chair damage requires two default-health hits', () => {
+  const ctx = game(); ctx.state.runConfig = { combatMode: 'challenge' }; ctx.state.weapon = 'chair';
+  const g = guard(0, -3); ctx.securityGuards.push(g);
+  ctx.doInteract('space'); assert.equal(g.userData.hp, 30);
+  assert.equal(ctx.state.chairKills, 0);
+  ctx.doInteract('space'); assert.equal(ctx.state.chairKills, 1);
+});

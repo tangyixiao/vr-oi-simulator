@@ -20,18 +20,20 @@ function navigationSegmentClear(nav, a, b, radius = nav.radius){
     }
     if (lo <= hi && hi >= 0 && lo <= 1) return false;
   }
-  return true;
+  return typeof terrainSegmentClear !== 'function' || terrainSegmentClear(a, b, radius);
 }
 function createGuardNavigation(bounds, obstacles){
   const radius = 0.3, step = 0.5;
   const nav = { radius, step, obstacles: obstacles.map(o => ({ ...o })),
     minX: -bounds.w / 2 + radius + 0.02, maxX: bounds.w / 2 - radius - 0.02,
     minZ: bounds.minZ ?? (-bounds.d / 2 + radius + 0.02),
-    maxZ: bounds.maxZ ?? (bounds.d / 2 - radius - 0.02), nodes: [], fields: new Map() };
+    maxZ: bounds.maxZ ?? (bounds.d / 2 - radius - 0.02), nodes: [], fields: new Map(),
+    terrainVersion: typeof getTerrainVersion === 'function' ? getTerrainVersion() : 0 };
   nav.cols = Math.floor((nav.maxX - nav.minX) / step) + 1;
   nav.rows = Math.floor((nav.maxZ - nav.minZ) / step) + 1;
   for (let z = 0; z < nav.rows; z++) for (let x = 0; x < nav.cols; x++){
     const node = { x: nav.minX + x * step, z: nav.minZ + z * step, edges: [] };
+    node.y = typeof groundHeight === 'function' ? groundHeight(node.x, node.z) : 0;
     nav.nodes.push(navigationSegmentClear(nav, node, node) ? node : null);
   }
   for (let i = 0; i < nav.nodes.length; i++){
@@ -91,6 +93,7 @@ function navigationTarget(nav, from, target){
 let guardNavigation = null, guardNavClock = 0, guardNavPlayer = null;
 function resetGuardNavigation(){ guardNavigation = null; guardNavPlayer = null; guardNavClock = 0; }
 function updateGuardNavigation(dt){
+  if (guardNavigation && typeof getTerrainVersion === 'function' && guardNavigation.terrainVersion !== getTerrainVersion()) resetGuardNavigation();
   if (!guardNavigation) guardNavigation = createGuardNavigation(worldBounds, obstacles);
   guardNavClock += dt;
   if (!guardNavPlayer || guardNavClock >= 0.25){

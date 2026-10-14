@@ -20,7 +20,7 @@ function persistSave(){
   try {
     const blob = {
       version: 9, checkpoint, runConfig: { ...currentRun() },
-      code: state.code, score: state.score,
+      code: state.code, score: state.score, copiedNpcCode: state.copiedNpcCode || {},
       curProb: state.curProb, elapsed: state.elapsed,
       warnCount: state.warnCount,
       achievements: Array.from(state.achievements),
@@ -42,7 +42,6 @@ function tryLoadSave(){
       if (restored.length === 4){
         state.problems = restored;
         state.curProb = restored[0].id;
-        state.npcProbId = restored[Math.floor(Math.random() * restored.length)].id;
         updateAllDeskScreens();
       } else {
         return false;
@@ -52,6 +51,7 @@ function tryLoadSave(){
     if (o.score)  state.score = o.score;
     if (o.curProb) state.curProb = o.curProb;
     if (typeof o.elapsed === 'number') state.elapsed = o.elapsed;
+    state.copiedNpcCode = restoreCopiedNpcCodeProofs(o.copiedNpcCode);
     if (typeof o.warnCount === 'number') state.warnCount = o.warnCount;
     if (Array.isArray(o.achievements)) state.achievements = new Set(o.achievements);
     if (o.runConfig) state.runConfig = Object.freeze(normalizeGameOptions(o.runConfig));

@@ -491,3 +491,5 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
 #btnStart:active{transform:translateX(-50%);}
 
 #btnStart{white-space:nowrap;width:max-content;max-width:calc(100vw - 40px);}
+.npc-progress{padding:12px 20px;border-bottom:1px solid #263b4b;color:#b6d7ca;line-height:1.8;font-size:13px;}
+.npc-progress #npcCompProgress{color:#8fa9be;}

@@ -69,7 +69,6 @@ const _right = new THREE.Vector3();
 const _move = new THREE.Vector3();
 
 function updatePlayer(dt){
-  updateJump(dt);
   const sprinting = !!state.keys['shift'];
   const speed = sprinting ? 5.0 : 3.1;   // Shift 加速
   _fwd.set(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
@@ -89,16 +88,21 @@ function updatePlayer(dt){
     /* 分轴滑动碰撞 */
     /* 空中不碰障碍：可以翻身过桌面；落地时若卡进去会回溯到起跳点 */
     const air = !onGround;
-    if (air || !collides(nx, state.pos.z, 0.28)) state.pos.x = nx;
-    if (air || !collides(state.pos.x, nz, 0.28)) state.pos.z = nz;
+    const canStep = (x, z) => air
+      ? terrainAirSegmentClear(state.pos, { x, z }, jumpY)
+      : !collides(x, z, 0.28) && terrainSegmentClear(state.pos, { x, z }, 0.28);
+    if (canStep(nx, state.pos.z)) state.pos.x = nx;
+    if (canStep(state.pos.x, nz)) state.pos.z = nz;
 
     state.bob += dt * (sprinting ? 15 : 11);   // 疾走时脚步更急促
     if (Math.sin(state.bob) > 0.96 && Math.random() < 0.4) audio.step();
   } else {
     state.bob += dt * 1.2;
   }
+  updateJump(dt);
+  state.pos.y = 1.65 + jumpY;
   const bobY = moving ? Math.sin(state.bob) * 0.022 : Math.sin(state.bob) * 0.004;
-  camera.position.set(state.pos.x, 1.65 + bobY, state.pos.z);
+  camera.position.set(state.pos.x, state.pos.y + bobY, state.pos.z);
   camera.rotation.set(state.pitch, state.yaw, 0, 'YXZ');
   /* 回弹是纯视觉叠加，不写回 state.yaw/pitch，不影响真实朝向 */
   camera.rotation.x += recoilPitch;
@@ -119,16 +123,18 @@ function tryJump(){
   if (!onGround || state.view !== 'world' || state.ended) return;
   velY = JUMP_VELOCITY;
   onGround = false;
-  _jumpSafe.set(state.pos.x, 0, state.pos.z);   /* 记下起跳点，落地回溯用 */
+  jumpY = groundHeight(state.pos.x, state.pos.z);
+  _jumpSafe.set(state.pos.x, jumpY, state.pos.z);   /* 记下起跳点，落地回溯用 */
   audio.beep(420, 0.05, 0.03, 'triangle');
 }
 
 function updateJump(dt){
-  if (onGround) return;
+  const floor = groundHeight(state.pos.x, state.pos.z);
+  if (onGround){ jumpY = floor; return; }
   velY -= JUMP_GRAVITY * dt;
   jumpY += velY * dt;
-  if (jumpY <= 0){
-    jumpY = 0;
+  if (jumpY <= floor && velY <= 0){
+    jumpY = floor;
     velY = 0;
     onGround = true;
     audio.step();
@@ -136,6 +142,7 @@ function updateJump(dt){
     if (collides(state.pos.x, state.pos.z, 0.28)){
       state.pos.x = _jumpSafe.x;
       state.pos.z = _jumpSafe.z;
+      jumpY = groundHeight(state.pos.x, state.pos.z);
     }
   }
 }

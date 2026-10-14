@@ -74,6 +74,8 @@ function loadProblem(id){
 }
 function saveCode(){
   state.code[state.curProb] = codeArea.value;
+  const proof = state.copiedNpcCode && state.copiedNpcCode[state.curProb];
+  if (proof && proof.code !== codeArea.value) delete state.copiedNpcCode[state.curProb];
   scheduleAutoSave();
 }
 
@@ -164,6 +166,12 @@ function hlRender(code){
    评测器（确定性）
    ========================================================= */
 function judgeCode(code, prob){
+  if (typeof hasAcceptedNpcCopy === 'function' && hasAcceptedNpcCopy(code, prob.id)){
+    return {
+      status: 'AC', score: prob.max, passed: 10, npcCopy: true,
+      cases: Array.from({ length: 10 }, (_, i) => ({ id: i + 1, status: 'AC', time: '游戏内模拟' }))
+    };
+  }
   return judgeUnified(code, prob, KEYWORDS_LIST);
 }
 
@@ -239,6 +247,7 @@ function renderVerdict(prob, res){
     <div class="cases">${res.cases.map(c =>
       `<div class="case ${c.status}">#${c.id}<br>${c.status}</div>`).join('')}</div>
     <div style="margin-top:12px;font-size:11px;color:#5d6880">
+      ${res.npcCopy ? '模拟选手的完整代码已匹配：获得游戏内 AC（未编译或运行 C++）。' : ''}
       ${res.status === 'CE' ? '提示：代码中未找到 main 函数或代码过短。' : ''}
       ${res.status !== 'AC' && res.status !== 'CE' ? '提示：检查算法复杂度与边界情况。' : ''}
       ${res.status === 'AC' ? '\u{1F389} 恭喜！这道题你拿到了满分。' : ''}

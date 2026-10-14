@@ -101,11 +101,27 @@ function disturbNPC(i){
   }
 }
 
+let npcComputerStudent = -1;
+let npcComputerSnapshot = null;
+let npcComputerRenderKey = '';
+let npcDeskWorkBucket = -1;
+let npcDeskWorkKey = '';
+
+function initNPCComputerUI(){
+  const button = $('btnCopyNPCCode');
+  if (button) button.onclick = copyNPCCode;
+}
+
+function npcComputerIsAvailable(n){
+  return !!n && ['walking_away', 'away', 'down'].includes(n.userData.state);
+}
+
 function useNPCComputer(i){
+  if (!state.started || state.ended || state.frozen || state.view !== 'world') return;
   const n = npcs[i];
   if (!n) return;
   const ud = n.userData;
-  if (ud.state !== 'walking_away' && ud.state !== 'away' && ud.state !== 'down'){
+  if (!npcComputerIsAvailable(n)){
     toast('他还在座位上，你不好动手。', 1500);
     return;
   }
@@ -113,8 +129,9 @@ function useNPCComputer(i){
   crosshair.classList.add('hidden');
   promptEl.classList.add('hidden');
   releaseLock();
-  $('npcCompHead').textContent = `\u{1F4BB} ${ud.name}的电脑`;
-  $('npcCompCode').textContent = genNpcCode(ud.name, state.npcProbId);
+  npcComputerStudent = i;
+  npcComputerRenderKey = '';
+  updateNPCComputer();
   npcComputerUI.classList.remove('hidden');
   audio.beep(520, 0.06, 0.035);
   setTimeout(() => audio.beep(660, 0.06, 0.035), 90);
@@ -128,8 +145,77 @@ function useNPCComputer(i){
   }
 }
 
+function updateNPCComputer(){
+  if (state.view !== 'npcComputer' || state.ended) return;
+  const n = npcs[npcComputerStudent];
+  if (!n) return;
+  const snapshot = getNpcWorkSnapshot(n.userData.name, n.userData.id, state.problems, state.elapsed);
+  if (!snapshot) return;
+  npcComputerSnapshot = snapshot;
+  const key = [snapshot.studentId, snapshot.problemId, snapshot.progress, snapshot.accepted].join('|');
+  if (key === npcComputerRenderKey) return;
+  npcComputerRenderKey = key;
+  $('npcCompHead').textContent = `\u{1F4BB} ${snapshot.studentName}的电脑`;
+  $('npcCompCode').textContent = snapshot.code;
+  const problemLabel = $('npcCompProblem'), progressLabel = $('npcCompProgress');
+  if (problemLabel) problemLabel.textContent = `${snapshot.problemId} · ${snapshot.problemName}`;
+  if (progressLabel) progressLabel.textContent = `编写进度 ${snapshot.progress}%`;
+  const tag = $('npcCompTag');
+  if (tag) tag.textContent = snapshot.accepted ? '已完成 · 游戏内 AC' : '编写中 · 未完成';
+  const button = $('btnCopyNPCCode');
+  if (button) button.textContent = snapshot.accepted ? '抄到我的 IDE（游戏内 AC）' : '抄到我的 IDE（未完成）';
+}
+
+function copyNPCCode(){
+  if (state.view !== 'npcComputer' || state.ended || state.frozen ||
+      !npcComputerSnapshot || !npcComputerIsAvailable(npcs[npcComputerStudent])) return false;
+  /* 使用屏幕已显示的快照，避免点按恰好跨题时抄到另一题。 */
+  const snapshot = npcComputerSnapshot;
+  const problem = state.problems.find(p => p.id === snapshot.problemId);
+  if (!problem) return false;
+  state.code[problem.id] = snapshot.code;
+  state.curProb = problem.id;
+  if (!state.copiedNpcCode) state.copiedNpcCode = {};
+  delete state.copiedNpcCode[problem.id];
+  if (snapshot.accepted){
+    state.copiedNpcCode[problem.id] = {
+      version: 1, studentId: snapshot.studentId, studentName: snapshot.studentName,
+      problemId: problem.id, code: snapshot.code,
+      capturedAt: snapshot.capturedAt, copiedAt: state.elapsed
+    };
+  }
+  npcComputerUI.classList.add('hidden');
+  npcComputerStudent = -1;
+  npcComputerSnapshot = null;
+  openCode();
+  persistSave();
+  toast(snapshot.accepted
+    ? `已抄取 ${snapshot.studentName} 的 ${problem.id} 完整代码，保持原样提交可获游戏内 AC。`
+    : `已抄取 ${problem.id} 未完成代码，提交仍按娱乐规则评分。`, 3000);
+  return true;
+}
+
+function hasAcceptedNpcCopy(code, problemId){
+  const proof = state.copiedNpcCode && state.copiedNpcCode[problemId];
+  return isValidCopiedNpcCodeProof(proof, code, problemId, state.problems, state.elapsed);
+}
+
+function restoreCopiedNpcCodeProofs(raw){
+  const restored = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return restored;
+  for (const problem of state.problems){
+    const proof = raw[problem.id];
+    if (isValidCopiedNpcCodeProof(proof, state.code[problem.id], problem.id, state.problems, state.elapsed)){
+      restored[problem.id] = { ...proof };
+    }
+  }
+  return restored;
+}
+
 function closeNPCComputer(){
   npcComputerUI.classList.add('hidden');
+  npcComputerStudent = -1;
+  npcComputerSnapshot = null;
   state.view = 'world';
   crosshair.classList.remove('hidden');
   requestLock();
@@ -178,6 +264,19 @@ function triggerNPCComplaint(name){
    NPC 状态机
    ========================================================= */
 function updateNPCs(realDt, t){
+  /* 3D 显示器只在比赛时间或答题阶段变化时重绘，避免逐帧上传贴图。 */
+  const workBucket = Math.floor(state.elapsed / 15);
+  if (workBucket !== npcDeskWorkBucket){
+    npcDeskWorkBucket = workBucket;
+    const key = npcs.map(n => {
+      const s = getNpcWorkSnapshot(n.userData.name, n.userData.id, state.problems, state.elapsed);
+      return s ? [s.studentId, s.problemId, Math.floor(s.progress / 10), s.accepted].join(':') : '';
+    }).join('|');
+    if (key !== npcDeskWorkKey){
+      npcDeskWorkKey = key;
+      scheduleDeskScreensUpdate();
+    }
+  }
   for (let i = 0; i < npcs.length; i++){
     const n = npcs[i];
     const ud = n.userData;
