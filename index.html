@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>VR OI · 校园突围</title>
-<link rel="stylesheet" href="assets/css/main.css?v=campus-20261012">
+<link rel="stylesheet" href="assets/css/main.css?v=firearms-20261014">
 </head>
 <body>
 
@@ -40,8 +40,10 @@
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动 &nbsp;·&nbsp;
     <kbd>Shift</kbd> 疾走 &nbsp;·&nbsp; <kbd>空格</kbd> 跳跃 &nbsp;·&nbsp;
     <b>移动鼠标</b> 转动视角（FPS 视角锁定）<br>
-    <kbd>E</kbd> 交互（电脑 · 草稿纸 · 水杯 · 出门）；<kbd>R</kbd> 拾取 / 放下空椅子；<br>
-    <kbd>鼠标左键</kbd> 攻击：<b>无冷却，可连续点击</b>；打倒老师开启保安战斗<br>
+    <kbd>E</kbd> 交互（电脑 · 草稿纸 · 水杯 · 出门）；<kbd>R</kbd> 持枪换弹 / 近战拾放椅子；<br>
+    <kbd>1</kbd> 拳头 &nbsp;·&nbsp; <kbd>2</kbd> 手枪 &nbsp;·&nbsp; <kbd>3</kbd> 自动步枪<br>
+    <kbd>鼠标左键</kbd> 攻击：近战无冷却，枪械按准星射击，步枪可按住连射；<br>
+    手枪 12 发 / 步枪 30 发，备用弹药无限。打倒老师开启保安战斗。<br>
     <kbd>F</kbd> 干扰同学 &nbsp;·&nbsp;
     <kbd>H</kbd> 举手呼叫监考 &nbsp;·&nbsp; <kbd>Esc</kbd> 释放鼠标 / 打开设置<br><br>
     弹窗操作：<b>视线停留 1 秒</b>或按 <kbd>1</kbd><kbd>2</kbd> 选择。<br>答题分数属于娱乐模拟，<b>不编译或运行 C++</b>。<br><br>
@@ -243,7 +245,7 @@
   </div>
 </div>
 
-<script src="assets/vendor/three.min.js?v=campus-20261012"></script>
+<script src="assets/vendor/three.min.js?v=firearms-20261014"></script>
 
 <!-- Three.js 加载失败兜底（需紧跟 CDN 脚本尽早执行） -->
 <script>
@@ -258,52 +260,54 @@ if (typeof THREE === 'undefined'){
 </script>
 
 <!-- 静态数据 -->
-<script src="assets/keywords.js?v=campus-20261012"></script>
-<script src="assets/problems/_pool.js?v=campus-20261012"></script>
-<script src="assets/problems/P14962.js?v=campus-20261012"></script>
-<script src="assets/problems/P14963.js?v=campus-20261012"></script>
-<script src="assets/problems/P14964.js?v=campus-20261012"></script>
-<script src="assets/problems/P14965.js?v=campus-20261012"></script>
-<script src="assets/problems/P15861.js?v=campus-20261012"></script>
-<script src="assets/problems/P15862.js?v=campus-20261012"></script>
-<script src="assets/problems/P15863.js?v=campus-20261012"></script>
-<script src="assets/problems/P15864.js?v=campus-20261012"></script>
-<script src="assets/problems/P16184.js?v=campus-20261012"></script>
-<script src="assets/problems/P16185.js?v=campus-20261012"></script>
-<script src="assets/problems/P16186.js?v=campus-20261012"></script>
-<script src="assets/problems/P16187.js?v=campus-20261012"></script>
-<script src="assets/problems/P17431.js?v=campus-20261012"></script>
-<script src="assets/problems/P17432.js?v=campus-20261012"></script>
-<script src="assets/problems/P17433.js?v=campus-20261012"></script>
-<script src="assets/problems/P17434.js?v=campus-20261012"></script>
+<script src="assets/keywords.js?v=firearms-20261014"></script>
+<script src="assets/problems/_pool.js?v=firearms-20261014"></script>
+<script src="assets/problems/P14962.js?v=firearms-20261014"></script>
+<script src="assets/problems/P14963.js?v=firearms-20261014"></script>
+<script src="assets/problems/P14964.js?v=firearms-20261014"></script>
+<script src="assets/problems/P14965.js?v=firearms-20261014"></script>
+<script src="assets/problems/P15861.js?v=firearms-20261014"></script>
+<script src="assets/problems/P15862.js?v=firearms-20261014"></script>
+<script src="assets/problems/P15863.js?v=firearms-20261014"></script>
+<script src="assets/problems/P15864.js?v=firearms-20261014"></script>
+<script src="assets/problems/P16184.js?v=firearms-20261014"></script>
+<script src="assets/problems/P16185.js?v=firearms-20261014"></script>
+<script src="assets/problems/P16186.js?v=firearms-20261014"></script>
+<script src="assets/problems/P16187.js?v=firearms-20261014"></script>
+<script src="assets/problems/P17431.js?v=firearms-20261014"></script>
+<script src="assets/problems/P17432.js?v=firearms-20261014"></script>
+<script src="assets/problems/P17433.js?v=firearms-20261014"></script>
+<script src="assets/problems/P17434.js?v=firearms-20261014"></script>
 
 <!-- 逻辑模块（传统脚本，共享全局作用域；顺序即依赖顺序） -->
-<script src="js/judge.js?v=campus-20261012"></script>
-<script src="js/npc-gen.js?v=campus-20261012"></script>
-<script src="js/problems.js?v=campus-20261012"></script>
-<script src="js/core.js?v=campus-20261012"></script>
-<script src="js/gameplay.js?v=campus-20261012"></script>
-<script src="js/weapons.js?v=campus-20261012"></script>
-<script src="js/dialog3d.js?v=campus-20261012"></script>
-<script src="js/feedback.js?v=campus-20261012"></script>
-<script src="js/hp.js?v=campus-20261012"></script>
-<script src="js/world.js?v=campus-20261012"></script>
-<script src="js/interact.js?v=campus-20261012"></script>
-<script src="js/combat.js?v=campus-20261012"></script>
-<script src="js/debris.js?v=campus-20261012"></script>
-<script src="js/npc.js?v=campus-20261012"></script>
-<script src="js/teacher.js?v=campus-20261012"></script>
-<script src="js/corridor.js?v=campus-20261012"></script>
-<script src="js/ide.js?v=campus-20261012"></script>
-<script src="js/paper.js?v=campus-20261012"></script>
-<script src="js/look.js?v=campus-20261012"></script>
-<script src="js/reticle.js?v=campus-20261012"></script>
-<script src="js/tension.js?v=campus-20261012"></script>
-<script src="js/postfx.js?v=campus-20261012"></script>
-<script src="js/save.js?v=campus-20261012"></script>
-<script src="js/ending.js?v=campus-20261012"></script>
-<script src="js/campaign.js?v=campus-20261012"></script>
-<script src="js/upgrade-ui.js?v=campus-20261012"></script>
-<script src="js/main.js?v=campus-20261012"></script>
+<script src="js/judge.js?v=firearms-20261014"></script>
+<script src="js/npc-gen.js?v=firearms-20261014"></script>
+<script src="js/problems.js?v=firearms-20261014"></script>
+<script src="js/core.js?v=firearms-20261014"></script>
+<script src="js/gameplay.js?v=firearms-20261014"></script>
+<script src="js/navigation.js?v=firearms-20261014"></script>
+<script src="js/firearms.js?v=firearms-20261014"></script>
+<script src="js/weapons.js?v=firearms-20261014"></script>
+<script src="js/dialog3d.js?v=firearms-20261014"></script>
+<script src="js/feedback.js?v=firearms-20261014"></script>
+<script src="js/hp.js?v=firearms-20261014"></script>
+<script src="js/world.js?v=firearms-20261014"></script>
+<script src="js/interact.js?v=firearms-20261014"></script>
+<script src="js/combat.js?v=firearms-20261014"></script>
+<script src="js/debris.js?v=firearms-20261014"></script>
+<script src="js/npc.js?v=firearms-20261014"></script>
+<script src="js/teacher.js?v=firearms-20261014"></script>
+<script src="js/corridor.js?v=firearms-20261014"></script>
+<script src="js/ide.js?v=firearms-20261014"></script>
+<script src="js/paper.js?v=firearms-20261014"></script>
+<script src="js/look.js?v=firearms-20261014"></script>
+<script src="js/reticle.js?v=firearms-20261014"></script>
+<script src="js/tension.js?v=firearms-20261014"></script>
+<script src="js/postfx.js?v=firearms-20261014"></script>
+<script src="js/save.js?v=firearms-20261014"></script>
+<script src="js/ending.js?v=firearms-20261014"></script>
+<script src="js/campaign.js?v=firearms-20261014"></script>
+<script src="js/upgrade-ui.js?v=firearms-20261014"></script>
+<script src="js/main.js?v=firearms-20261014"></script>
 </body>
 </html>

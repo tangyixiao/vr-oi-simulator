@@ -9,10 +9,12 @@ const GAME_SETTINGS_KEY = 'oi_game_v1';
 function normalizeGameOptions(input){
   const o = input && typeof input === 'object' ? input : {};
   const n = Number(o.guardTarget);
+  const speed = Number(o.guardSpeed);
   return {
     combatMode: o.combatMode === 'challenge' ? 'challenge' : 'power',
     runMode: o.runMode === 'endless' ? 'endless' : 'campaign',
     guardTarget: Number.isFinite(n) ? Math.max(50, Math.min(5000, Math.round(n))) : 200,
+    guardSpeed: Number.isFinite(speed) ? Math.max(0.5, Math.min(10, Math.round(speed * 10) / 10)) : 1.5,
     quality: Object.hasOwn(QUALITY, o.quality) ? o.quality : 'standard',
     comfort: o.comfort !== false,
     trail: typeof o.trail === 'boolean' ? o.trail : o.comfort === false,
@@ -107,9 +109,5 @@ function recordPunch(n){
   if (state.weapon === 'chair'){
     state.chairKills = (state.chairKills || 0) + n;
     if (state.chairKills >= 50) unlockAch('chair50');
-  }
-  if (currentRun().runMode === 'endless'){
-    if (state.guardKills >= 500) unlockAch('endless500');
-    if (state.guardKills >= 1000) unlockAch('endless1000');
   }
 }

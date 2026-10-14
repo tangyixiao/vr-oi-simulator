@@ -67,8 +67,14 @@ function damagePlayer(g, now){
       const dx = g.group.position.x - state.pos.x;
       const dz = g.group.position.z - state.pos.z;
       const len = Math.hypot(dx, dz) || 1;
-      g.group.position.x = state.pos.x + dx / len * 1.6;
-      g.group.position.z = state.pos.z + dz / len * 1.6;
+      const pos = g.group.position;
+      const travel = Math.max(0, 1.6 - len);
+      const steps = Math.max(1, Math.ceil(travel / 0.1));
+      for (let i = 0; i < steps; i++){
+        const dest = { x: pos.x + dx / len * travel / steps, z: pos.z + dz / len * travel / steps };
+        if (!guardNavigation || !navigationSegmentClear(guardNavigation, pos, dest)) break;
+        pos.x = dest.x; pos.z = dest.z;
+      }
     }
     return true;
   }

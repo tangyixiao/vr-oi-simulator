@@ -673,8 +673,9 @@ function spawnTwoGuards(){
     const spot = findGuardSpawn();
     if (!spot) break;
     const g = buildSecurityGuard(spot.x, spot.z);
-    g.userData = { alive: true, speed: (GUARD_SPEED_BASE + Math.min(0.35, state.guardKills * 0.04)) *
-      (battle.stage.startsWith('campus') ? 1.25 : 1) };
+    g.userData = { alive: true, navSlot: battle.spawned,
+      speedFactor: (1 + Math.min(0.25, state.guardKills * 0.005)) *
+        (battle.stage.startsWith('campus') ? 1.25 : 1) };
     securityGuards.push(g);
     battle.spawned++;
     state.guardsSpawned++;

@@ -9,6 +9,10 @@
 function punchTeacher(){
   if (!canFight() || !teacher || teacher.userData.leaving) return;
   if (!inPunchRange(teacher.group.position.x, teacher.group.position.z)) return;
+  downTeacher();
+}
+function downTeacher(){
+  if (!canFight() || !teacher || teacher.userData.leaving) return;
   const target = teacher;
   target.userData.leaving = true;
   spawnBodyDebris(target.group, { speed: 3.2 });
@@ -23,7 +27,7 @@ function punchTeacher(){
   hitFeedback(1);
   beginBattle('classroom', currentRun().guardTarget);
   captureCheckpoint();
-  toast('监考老师跑了！保安正在赶来。左键攻击 · R 拾取空椅子', 3200);
+  toast('监考老师跑了！保安正在赶来。2 手枪 · 3 步枪 · R 换弹／拾椅子', 3200);
 }
 
 /* ---------- 攻击范围：100 米、360°，无需对准 ---------- */
@@ -101,7 +105,8 @@ function punchGuardsArc(){
    保安 AI + 碰撞
    ========================================================= */
 function updateGuards(realDt, t){
-  if (state.ended || state.frozen || state.view !== 'world') return;
+  if (!canFight()) return;
+  if (securityGuards.some(g => g.userData.alive)) updateGuardNavigation(realDt);
 
   let minDist = Infinity;
   nearestGuardDist = Infinity;
@@ -122,18 +127,11 @@ function updateGuards(realDt, t){
     if (d < nearD[0]){ nearD[1] = nearD[0]; near[1] = near[0]; nearD[0] = d; near[0] = g; }
     else if (d < nearD[1]){ nearD[1] = d; near[1] = g; }
 
-    if (d < GUARD_HIT_RADIUS){
+    if (d < GUARD_HIT_RADIUS && navigationSegmentClear(guardNavigation, pos, state.pos, 0.05)){
       if (!handleGuardCatch(g)) return;
     }
 
-    if (d > 0.01){
-      const sp = g.userData.speed * realDt;
-      const nx = pos.x + (dx / d) * sp;
-      const nz = pos.z + (dz / d) * sp;
-      if (!collides(nx, pos.z, 0.3)) pos.x = nx;
-      if (!collides(pos.x, nz, 0.3)) pos.z = nz;
-      g.group.rotation.y = Math.atan2(dx, dz);
-    }
+    moveGuard(g, i, realDt);
 
     const v = Math.sin(t * 3.5 + g.phase) * 0.25;
     g.armL.rotation.x = -0.25 + v;
@@ -255,6 +253,10 @@ function checkGuardKillMilestones(k){
   if (k >= 20)  unlockAch('guard20');
   if (k >= 50)  unlockAch('guard50');
   if (k >= 100) unlockAch('guard100');
+  if (currentRun().runMode === 'endless'){
+    if (k >= 500) unlockAch('endless500');
+    if (k >= 1000) unlockAch('endless1000');
+  }
 }
 
 function maybeGuardWarning(){

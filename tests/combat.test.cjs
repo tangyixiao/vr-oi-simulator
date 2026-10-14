@@ -42,6 +42,7 @@ function game() {
     $: () => null,
     campusExit: null,
     heldChair: null,
+    isFirearm: () => false,
     nearbyChair: () => null,
     audio: { punch() {}, beep() {} },
     toast() {},

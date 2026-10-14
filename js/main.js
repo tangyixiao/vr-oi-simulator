@@ -7,6 +7,12 @@
    事件绑定
    ========================================================= */
 function bindEvents(){
+  renderer.domElement.addEventListener('mousedown', e => {
+    if (e.button !== 0 || !canFight() || !isFirearm(state.weapon)) return;
+    if (!pointerLocked){ requestLock(); return; }
+    setFirearmTrigger(true);
+  });
+  document.addEventListener('mouseup', e => { if (e.button === 0) clearFirearmInput(); });
   /* 左键交互；未锁定时点击画面重新捕获鼠标，不触发交互 */
   renderer.domElement.addEventListener('click', () => {
     if (!state.started || state.ended) return;
@@ -14,6 +20,7 @@ function bindEvents(){
        避免点击造成状态中断而进度环仍残留的问题；此时点击仅用于
        在指针意外释放时重新捕获鼠标 */
     if (hasDialog()){ if (!pointerLocked) requestLock(); return; }
+    if (isFirearm(state.weapon)){ if (!pointerLocked) requestLock(); return; }
     updateInteract();
     /* 未锁定时：有可攻击目标就直接出拳（锁定失效也能打），
        否则重新捕获鼠标——避免误触其他交互 */
@@ -70,6 +77,10 @@ function bindEvents(){
       e.preventDefault();
       return;
     }
+    if (!e.repeat && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)){
+      selectWeapon({ Digit1: 'fist', Digit2: 'pistol', Digit3: 'rifle' }[e.code]);
+      e.preventDefault();
+    }
 
     const k = KEYMAP[e.code];
     if (k){
@@ -110,11 +121,13 @@ function bindEvents(){
     if (k) state.keys[k] = false;
   });
 
-  window.addEventListener('blur', () => { state.keys = {}; });
+  window.addEventListener('blur', () => { state.keys = {}; clearFirearmInput(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearFirearmInput(); });
 
   /* ---------- 指针锁定 ---------- */
   document.addEventListener('pointerlockchange', () => {
     pointerLocked = document.pointerLockElement === lockElement();
+    if (!pointerLocked) clearFirearmInput();
     if (pointerLocked && !canLockView()){ releaseLock(); return; }
     if (pointerLocked) lastLockAt = performance.now();
     /* 锁定被释放（通常是 Esc）：世界视图下打开设置面板 */
@@ -298,7 +311,7 @@ function bindEvents(){
     state.startTime = performance.now();
     yawTarget = state.yaw; pitchTarget = state.pitch;
     clock.getDelta();
-    toast('WASD 移动 · 左键攻击 · E 交互 · R 拾取椅子。打倒老师开启战斗！', 4000);
+    toast('WASD 移动 · 1 拳头 · 2 手枪 · 3 步枪 · R 换弹／拾椅子 · E 交互', 4000);
     /* 点击按钮是用户手势，此时申请指针锁定成功率最高 */
     requestLock();
     /* 尝试恢复存档 */
@@ -377,6 +390,7 @@ function animate(){
   /* 3D 准星：旋转 / 缩放 / 变色 / 停留进度环 */
   updateReticle(realDt);
   updateWeapons(realDt);
+  updateFirearms(realDt);
   if (state.started && !state.ended) renderBattleHud();
 
   if (state.view === 'corridor') updateCorridor(realDt);

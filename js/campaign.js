@@ -22,6 +22,8 @@ function disposeLevelObject(group){
 }
 function clearLevel(){
   stopBattle();
+  resetGuardNavigation();
+  resetFirearms();
   dismissDialogs();
   endSlowMo();
   slowMoDlg = null;
@@ -122,6 +124,7 @@ function openCheckpointGate(){
   if (campusGate) campusGate.visible = false;
   const gate = obstacles.findIndex(o => campusExit && o.x === 0 && Math.abs(o.z - campusExit.z) < 0.01);
   if (gate >= 0) obstacles.splice(gate, 1);
+  resetGuardNavigation();
   toast('本段清空！靠近闸门按 E 继续。', 2500);
 }
 function advanceCampus(){
@@ -141,7 +144,8 @@ function captureCheckpoint(){
   if (currentRun().runMode === 'endless') return;
   checkpoint = { stage: battle.stage, config: { ...currentRun() }, hp: state.hp,
     weapon: state.weapon, guardKills: state.guardKills, bestPunch: state.bestPunch,
-    chairKills: state.chairKills, npcKills: state.npcKills, realPlayTime: state.realPlayTime };
+    chairKills: state.chairKills, gunKills: state.gunKills, ammo: { ...gunAmmo }, heldChair: !!heldChair,
+    npcKills: state.npcKills, realPlayTime: state.realPlayTime };
   persistSave();
 }
 function restoreCheckpoint(cp){
@@ -151,6 +155,7 @@ function restoreCheckpoint(cp){
   state.guardKills = Math.max(0, Number(cp.guardKills) || 0);
   state.bestPunch = Math.max(0, Number(cp.bestPunch) || 0);
   state.chairKills = Math.max(0, Number(cp.chairKills) || 0);
+  state.gunKills = Math.max(0, Number(cp.gunKills) || 0);
   state.npcKills = Math.max(0, Number(cp.npcKills) || 0);
   state.realPlayTime = Math.max(0, Number(cp.realPlayTime) || 0);
   state.teacherDown = true;
@@ -167,7 +172,10 @@ function restoreCheckpoint(cp){
   }
   if (heldChair){ camera.remove(heldChair.group); heldChair = null; }
   state.weapon = 'fist';
-  if (cp.weapon === 'chair') equipChair(makeLooseChair(state.pos.x + 0.6, state.pos.z));
+  if (cp.weapon === 'chair' || cp.heldChair === true) equipChair(makeLooseChair(state.pos.x + 0.6, state.pos.z));
+  if (isFirearm(cp.weapon)) state.weapon = cp.weapon;
+  else if (cp.weapon !== 'chair') state.weapon = 'fist';
+  restoreGunAmmo(cp.ammo);
   checkpoint = cp; renderHp();
   return true;
 }
@@ -187,18 +195,22 @@ function endEndless(reason){
 function finishRun(title, text, keepCheckpoint = false){
   if (state.ended) return;
   state.ended = true; state.view = 'world'; stopBattle(); hideAllPanels();
+  resetFirearms();
   for (const g of securityGuards){ scene.remove(g.group); disposeOwnedMaterials(g.group); }
   securityGuards.length = 0; clearDebris();
   state.retryCheckpoint = keepCheckpoint;
   $('btnRestart').textContent = keepCheckpoint ? '从检查点重试' : '再来一场';
   $('endTitle').textContent = title;
   $('endSub').textContent = text;
-  showEnding(state.totalScore, `答题娱乐分：${state.totalScore} / 400（模拟评分）\\n战斗模式：${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\\n击倒保安：${state.guardKills}\\n单次最高：${state.bestPunch}\\n椅子击倒：${state.chairKills}\\n实际用时：${fmtTime(state.realPlayTime)}`.replace(/\\n/g, '\n'));
+  showEnding(state.totalScore, `答题娱乐分：${state.totalScore} / 400（模拟评分）\\n战斗模式：${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\\n击倒保安：${state.guardKills}\\n近战单次最高：${state.bestPunch}\\n椅子击倒：${state.chairKills}\\n枪械击倒：${state.gunKills}\\n实际用时：${fmtTime(state.realPlayTime)}`.replace(/\\n/g, '\n'));
   if (!keepCheckpoint && currentRun().runMode !== 'endless') clearSave();
 }
 function renderBattleHud(){
   const el = $('battleHud'); if (!el) return;
   const p = attackProfile(currentRun(), state.weapon);
   const remaining = Number.isFinite(battle.target) ? `${battle.kills} / ${battle.target}` : `${state.guardKills} · 无尽`;
-  el.textContent = `${CHAPTER_NAMES[state.chapter] || '考场'} · ${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\\n${state.weapon === 'chair' ? '椅子' : '拳头'} · ${p.range} 米 · 无冷却\\n${state.teacherDown ? '本段击倒 ' + remaining : '左键打倒老师，开启战斗'} · 单次最高 ${state.bestPunch}`.replace(/\\n/g, '\n');
+  const weapon = isFirearm(state.weapon)
+    ? `${GUNS[state.weapon].name} · ${gunMagazine(state.weapon)} / ${GUNS[state.weapon].capacity} · ${gunReload > 0 ? '换弹 ' + gunReload.toFixed(1) + ' 秒' : 'R 换弹'}`
+    : `${state.weapon === 'chair' ? '椅子' : '拳头'} · ${p.range} 米 · 无冷却`;
+  el.textContent = `${CHAPTER_NAMES[state.chapter] || '考场'} · ${currentRun().combatMode === 'power' ? '爽快' : '挑战'}\n${weapon}\n1 拳头 · 2 手枪 · 3 步枪\n保安基础移速 ${gameOptions.guardSpeed.toFixed(1)} 米/秒\n${state.teacherDown ? '本段击倒 ' + remaining : '左键打倒老师，开启战斗'} · 单次最高 ${state.bestPunch}`;
 }

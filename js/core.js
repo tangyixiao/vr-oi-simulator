@@ -43,7 +43,7 @@ const CONTEST_LEN = 4 * 3600;
 
 const state = {
   started: false, ended: false, frozen: false,
-  runConfig: null, chapter: 'classroom', weapon: 'fist', bestPunch: 0, chairKills: 0, npcKills: 0, realPlayTime: 0,
+  runConfig: null, chapter: 'classroom', weapon: 'fist', bestPunch: 0, chairKills: 0, gunKills: 0, npcKills: 0, realPlayTime: 0,
   view: 'world',
   elapsed: 0,
   yaw: 0, pitch: 0,

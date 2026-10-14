@@ -41,6 +41,8 @@ function equipChair(c){
 }
 function toggleChair(){
   if (!canFight()) return;
+  if (isFirearm(state.weapon)){ reloadGun(); return; }
+  if (heldChair && state.weapon !== 'chair'){ selectWeapon('chair'); return; }
   if (heldChair){
     const c = heldChair;
     const x = clamp(state.pos.x + Math.cos(state.yaw) * 0.6, -worldBounds.w/2 + 0.6, worldBounds.w/2 - 0.6);
@@ -69,6 +71,7 @@ function initWeapons(){
   box(0.10, 0.11, 0.13, 0xd0a070, 0, 0, 0, fistRig);
   box(0.08, 0.08, 0.18, 0x324665, 0, -0.02, 0.12, fistRig);
   camera.add(fistRig);
+  initGuns();
 }
 function animateWeaponSwing(){ weaponSwing = 0.16; }
 function updateWeapons(dt){
@@ -79,8 +82,8 @@ function updateWeapons(dt){
     heldChair.group.rotation.set(0.2 + v * 0.7, -0.35 - v * 0.9, 0.12);
   }
   if (fistRig){
-    fistRig.visible = state.weapon !== 'chair' && state.view === 'world' && state.started && !state.ended;
+    fistRig.visible = state.weapon === 'fist' && state.view === 'world' && state.started && !state.ended;
     fistRig.position.set(0.28 - v * 0.12, -0.26 + v * 0.08, -0.48 - v * 0.18);
   }
-  if (heldChair) heldChair.group.visible = state.view === 'world' && state.started && !state.ended;
+  if (heldChair) heldChair.group.visible = state.weapon === 'chair' && state.view === 'world' && state.started && !state.ended;
 }
