@@ -56,3 +56,7 @@ npm run test:browser
 逻辑仍使用传统脚本，共享全局作用域并按 `index.html` 顺序加载。`gameplay.js` 管理规则和补充队列，`weapons.js` 管理椅子，`firearms.js` 管理枪械与弹匣，`combat.js` 管理独立血量，`navigation.js` 管理共享路线和包围追击，`terrain.js` 管理地面与坡道，`npc-gen.js`／`npc.js` 管理同学进度与抄代码，`campaign.js` 管理关卡与检查点，`upgrade-ui.js` 管理玩法和设置。
 
 在 `assets/problems/` 添加题目后，将脚本加入 `index.html`；每题注册到 `PROBLEM_DATA`，沿用现有格式。
+
+## 项目网站
+
+下载或克隆仓库后，用浏览器打开[中文首页](project-website/site/index.html)或 [English homepage](project-website/site/en/index.html)。两个版本都可以离线阅读。
