@@ -1,0 +1,136 @@
+{
+  "meta": {
+    "description": "Move through an exam room, corridors and a courtyard in a browser-based Three.js game. Story checkpoints and endless-mode best scores are tracked separately."
+  },
+  "pages": {
+    "home": {
+      "title": "Explore a three-dimensional OI campus · {project}"
+    },
+    "features": {
+      "title": "Features · {project}",
+      "description": "Move through an exam room, corridors and a courtyard in a browser-based Three.js game. Story checkpoints and endless-mode best scores are tracked separately."
+    },
+    "download": {
+      "title": "Get started · {project}",
+      "description": "Open the game, select story or endless mode and choose a graphics setting for the device."
+    },
+    "community": {
+      "title": "Community · {project}",
+      "description": "Find usage guidance, follow discussions and review changes to this project."
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "features": "Features",
+    "download": "Get started",
+    "community": "Community"
+  },
+  "ui": {
+    "skip_link": "Skip to main content",
+    "navigation": "Main navigation",
+    "open_navigation": "Open navigation",
+    "close_navigation": "Close navigation",
+    "language": "Choose language",
+    "theme": "Choose theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "platforms": "Supported platforms",
+    "github": "GitHub",
+    "view_image": "View full illustration",
+    "feature_more": "Explore features",
+    "download": "Play in the browser",
+    "release_notes": "Source repository",
+    "documentation": "Documentation",
+    "source": "Source repository",
+    "illustration": "First steps",
+    "license": "MIT"
+  },
+  "hero": {
+    "title": [
+      "Explore a three-dimensional OI campus"
+    ],
+    "description": [
+      "Move through an exam room, corridors and a courtyard in a browser-based Three.js game. Story checkpoints and endless-mode best scores are tracked separately."
+    ],
+    "primary_action": "Play in the browser",
+    "secondary_action": "Explore features"
+  },
+  "preview": {
+    "caption": "First steps",
+    "tabs": [
+      {
+        "label": "Get started",
+        "icon": "book"
+      }
+    ],
+    "items": [
+      {
+        "title": "Choose a mode",
+        "description": "Open the game, select story or endless mode and choose a graphics setting for the device.",
+        "icon": "book"
+      },
+      {
+        "title": "Learn the controls",
+        "description": "Use WASD to move, the mouse to look around, E to interact and Esc for settings.",
+        "icon": "link"
+      }
+    ]
+  },
+  "features": {
+    "title": "Project features",
+    "groups": [
+      {
+        "title": "Simulated exam",
+        "description": "Watch classmates work and submit code in the in-game IDE. The score uses a game heuristic without compiling C++.",
+        "detail": "",
+        "icon": "layers"
+      },
+      {
+        "title": "Display and saves",
+        "description": "Adjust rendering quality, shake and flashing. Resume a story run from the last stage checkpoint.",
+        "detail": "",
+        "icon": "book"
+      }
+    ]
+  },
+  "getting_started": {
+    "title": "Get started · {project}",
+    "steps": [
+      {
+        "title": "Choose a mode",
+        "description": "Open the game, select story or endless mode and choose a graphics setting for the device.",
+        "icon": "book"
+      },
+      {
+        "title": "Learn the controls",
+        "description": "Use WASD to move, the mouse to look around, E to interact and Esc for settings.",
+        "icon": "link"
+      }
+    ]
+  },
+  "community": {
+    "title": "Community · {project}",
+    "description": "Find usage guidance, follow discussions and review changes to this project.",
+    "links": [
+      {
+        "label": "Documentation",
+        "description": "Consult the project documentation.",
+        "icon": "book"
+      },
+      {
+        "label": "Source repository",
+        "description": "Find the project and its maintenance links.",
+        "icon": "link"
+      },
+      {
+        "label": "Review changes",
+        "description": "Review open pull requests or prepare a contribution.",
+        "icon": "code"
+      }
+    ]
+  },
+  "footer": {
+    "copyright": "{copyright}"
+  }
+}
